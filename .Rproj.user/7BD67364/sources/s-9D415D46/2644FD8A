@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1568986286444.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "2644FD8A",
+    "lastKnownWriteTime" : 1569935182,
+    "last_content_update" : 1569935182900,
+    "path" : "~/wip/R/edgwas/R/edgwas.R",
+    "project_path" : "R/edgwas.R",
+    "properties" : {
+        "cursorPosition" : "134,0",
+        "scrollLine" : "97"
+    },
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

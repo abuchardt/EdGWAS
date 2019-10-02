@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1565954440501.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2541837586",
+    "id" : "844DC9F8",
+    "lastKnownWriteTime" : 1569927694,
+    "last_content_update" : 1569927694,
+    "path" : "~/wip/R/edgwas/man/edgwas.Rd",
+    "project_path" : "man/edgwas.Rd",
+    "properties" : {
+        "cursorPosition" : "0,0",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 11,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_doc"
+}

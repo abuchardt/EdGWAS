@@ -1,0 +1,79 @@
+library(profvis)
+
+profvis({
+
+  N <- 100 #
+  q <- 9
+  p <- 1000 #
+  set.seed(1)
+  x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+  B <- matrix(0, nrow = p, ncol = q)
+  B[1:2, 1:5] <- 1
+  y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+  rho = NULL
+  nfolds = 5
+  type.measure = "mse"
+
+  edgwas.call <- match.call(expand.dots = TRUE)
+  edgwas.call[[1]] <- as.name("edgwas")
+  edgwas.object <- edgwas(x, y, rho = rho)#, ...)
+  edgwas.object$call <- edgwas.call
+
+
+  foldid <- sample(rep(seq(nfolds), length = N))
+
+  mse <- list(NULL)
+  i = 1
+
+    cat("i: ", i, ", ")
+    fold <- foldid == i
+
+    if (is.matrix(y)) {
+      yTrain <- y[!fold, ]
+      yTest <- y[fold, ]
+    } else {
+      yTrain <- y[!fold]
+      yTest <- y[fold]
+    }
+    xTrain <- x[!fold, , drop = FALSE]
+    xTest <- x[fold, , drop = FALSE]
+
+    outlist <- edgwas(xTrain, yTrain, rho = NULL)#, ...)
+
+    mse[[i]] <- vector("numeric", length(edgwas.object$rho))
+    for (j in seq_along(edgwas.object$rho)) {
+      cat(".")
+
+      w <- expm::sqrtm(outlist$P[[j]]) ## qxq
+      wy <- yTrain %*% w ## nrow(xTrain)xq
+      xVex <- matrix(rep(c(xTrain), ncol(w)), ncol = ncol(w)) ## nrow(xTrain)*pxq
+      wx <- xVex %*% w ## nrow(xTrain)*pxq
+
+      fit <- list(NULL)
+      for (l in seq(ncol(y))) {
+        xsubsub <- matrix(wx[,l], ncol = ncol(x)) ## 900*10000
+        lasFit <- glmnet::cv.glmnet(x = xsubsub, y = c(wy[, l]))
+        nz <- which(coef(lasFit, s="lambda.min")[-1] != 0)
+        dataTmp <- data.frame(yTmp = wy[,l], xTmp = I(xsubsub[,nz]))
+
+        if(length(nz) == 0) {
+          fit[[l]] <- rep(mean(wy[,l]), length(yTest[,l]))
+        } else if (length(nz) > nrow(xTrain)) {
+          fit[[l]] <- rep(NA, length(yTest[,l]))
+        } else {
+          lmfit <- lm(yTmp ~ xTmp, data = dataTmp)
+          dataTmp2 <- data.frame (yTmp = yTest[,l], xTmp = I(xTest[,nz]))
+          fit[[l]] <- predict(lmfit, newdata = dataTmp2)
+        }
+      }
+
+      yHat <- do.call(cbind, fit)
+      mse[[i]][j] <- mean((yTest - yHat)^2)
+    }
+    cat("\n")
+})
+
+
+
+
