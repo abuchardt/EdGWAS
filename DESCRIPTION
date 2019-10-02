@@ -1,4 +1,4 @@
-Package: edgwas
+Package: EdGwas
 Type: Package
 Title: Cluster multiple traits via PRS
 Version: 0.1.0

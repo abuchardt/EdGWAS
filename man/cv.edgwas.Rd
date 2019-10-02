@@ -4,7 +4,8 @@
 \alias{cv.edgwas}
 \title{Cross-validation for EdGwas}
 \usage{
-cv.edgwas(x, y, rho = NULL, nfolds = 10, type.measure = "mse", ...)
+cv.edgwas(x, y, rho = NULL, nfolds = 10, type.measure = "mse",
+  trace = FALSE, ...)
 }
 \arguments{
 \item{x}{input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.}
