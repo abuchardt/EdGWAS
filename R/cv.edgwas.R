@@ -26,7 +26,7 @@
 #'
 #' @export cv.edgwas
 #'
-cv.edgwas <- function(x, y, rho = NULL, nfolds = 10, type.measure = "mse", ...) {
+cv.edgwas <- function(x, y, rho = NULL, nfolds = 10, type.measure = "mse", trace = FALSE, ...) {
 
   if (missing(type.measure)) {
     type.measure <- "default"
@@ -76,7 +76,8 @@ cv.default <- function(rho, x, y, lengthRho, nfolds, type.measure, ...) {
   mse <- list(NULL)
   for (i in seq(nfolds)) {
 
-    cat("i: ", i, ", ")
+    if(trace) cat("i: ", i, ", ")
+
     fold <- foldid == i
 
     if (is.matrix(y)) {
@@ -93,7 +94,8 @@ cv.default <- function(rho, x, y, lengthRho, nfolds, type.measure, ...) {
 
     mse[[i]] <- vector("numeric", lengthRho)
     for (j in seq(lengthRho)) {
-      cat(".")
+
+      if(trace) cat(".")
 
       w <- expm::sqrtm(outlist$P[[j]]) ## qxq
       wy <- yTrain %*% w ## nrow(xTrain)xq
@@ -117,7 +119,8 @@ cv.default <- function(rho, x, y, lengthRho, nfolds, type.measure, ...) {
       yHat <- do.call(cbind, fit)
       mse[[i]][j] <- mean((yTest - yHat)^2, na.rm = TRUE)
     }
-    cat("\n")
+
+    if(trace) cat("\n")
   }
 
   cvm <- rowMeans(do.call(cbind, mse))
