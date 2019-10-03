@@ -38,7 +38,17 @@ Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 Run 5-fold cross-validation for edgwas
 
 ``` r
-
 cvfit <- cv.edgwas(x = X, y = Y, nfolds = 5)
-plot(cvfit)
 ```
+
+``` r
+plot(cvfit, which = 1)
+```
+
+<img src="man/figures/README-p1-1.png" width="100%" />
+
+``` r
+plot(cvfit, which = 3) 
+```
+
+<img src="man/figures/README-p3-1.png" width="100%" />

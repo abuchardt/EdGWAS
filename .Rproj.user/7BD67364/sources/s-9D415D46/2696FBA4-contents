@@ -48,10 +48,6 @@ plot.cv.edgwas <- function (x, which = c(1L:3L),
       abline(v = log(x$rho.1se), lty = 3)
       abline(v = log(x$rho.min), lty = 3)
 
-      if (one.fig)
-        title(sub = sub.caption, ...)
-      mtext(getCaption(1), 3, 0.25, cex = cex.caption)
-
       dev.flush()
     }
     if (show[2L]) {
@@ -111,11 +107,11 @@ plot.cv.edgwas <- function (x, which = c(1L:3L),
         A
       }
 
-      data_heatmap_1 <- lapply(seq_along(cvfit$edgwas.fit$A), function(a) {
-        AA <- cvfit$edgwas.fit$A[[a]]
+      data_heatmap_1 <- lapply(seq_along(x$edgwas.fit$A), function(a) {
+        AA <- x$edgwas.fit$A[[a]]
         colnames(AA) <- rownames(AA) <- paste0("V", seq(ncol(AA)))
-        cormat <- AA #reorderA(AA, cvfit$edgwas.fit$P[[a]])
-        cbind(melt(cormat), rho = cvfit$rho[a])
+        cormat <- AA #reorderA(AA, x$edgwas.fit$P[[a]])
+        cbind(melt(cormat), rho = x$rho[a])
       })
 
       data_heatmap <- do.call(rbind, data_heatmap_1)
@@ -125,10 +121,9 @@ plot.cv.edgwas <- function (x, which = c(1L:3L),
           geom_tile(aes(fill = value)) +
           scale_fill_gradientn(colors = c("#ffffff", "#16161d")) +
           scale_y_discrete(limits = unique(data_heatmap$Var2)) +
-          #ggtitle(gtitle) +
           theme(panel.grid.major = element_blank(),
                 panel.grid.minor = element_blank(),
-                panel.border = element_blank(), #rect(linetype = "dashed", fill = NA),
+                panel.border = element_blank(),
                 panel.background = element_blank(),
                 axis.title.x=element_blank(),
                 axis.title.y=element_blank(),
@@ -139,9 +134,8 @@ plot.cv.edgwas <- function (x, which = c(1L:3L),
                      lwd=.5, colour="white") +
           coord_fixed() + theme(legend.position = "none")
 
-        p <- layout(animation_slider(ggplotly(gp),
-                                     currentvalue = list(prefix = "rho ", font = list(color="black"))),
-                    margin = list(pad = 0, b = 90, l = 0, r = 90))
+        p <- animation_slider(ggplotly(gp),
+                              currentvalue = list(prefix = "rho ", font = list(color="black")))
 
         print(p)
         dev.flush()
@@ -150,3 +144,46 @@ plot.cv.edgwas <- function (x, which = c(1L:3L),
     #  mtext(sub.caption, outer = TRUE, cex = cex.oma.main)
     invisible()
   }
+
+
+.interactiveHeatmap <- function(x) {
+  reorderA <- function(A, P){
+    # Use correlation between variables as distance
+    dd <- as.dist(P)
+    hc <- hclust(dd)
+    A <- A[hc$order, hc$order]
+    A
+  }
+
+  data_heatmap_1 <- lapply(seq_along(x$edgwas.fit$A), function(a) {
+    AA <- x$edgwas.fit$A[[a]]
+    colnames(AA) <- rownames(AA) <- paste0("V", seq(ncol(AA)))
+    cormat <- AA #reorderA(AA, x$edgwas.fit$P[[a]])
+    cbind(melt(cormat), rho = x$rho[a])
+  })
+
+  data_heatmap <- do.call(rbind, data_heatmap_1)
+
+  dev.hold()
+  gp <- ggplot(data_heatmap, aes(Var1, Var2, frame = rho)) +
+    geom_tile(aes(fill = value)) +
+    scale_fill_gradientn(colors = c("#ffffff", "#16161d")) +
+    scale_y_discrete(limits = unique(data_heatmap$Var2)) +
+    theme(panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(),
+          axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
+          axis.ticks = element_blank()) +
+    geom_vline(xintercept=seq(1.5, 10-0.5, 1),
+               lwd=.5, colour="white") +
+    geom_hline(yintercept=seq(1.5, 10-0.5, 1),
+               lwd=.5, colour="white") +
+    coord_fixed() + theme(legend.position = "none")
+
+  p <- animation_slider(ggplotly(gp),
+                        currentvalue = list(prefix = "rho ", font = list(color="black")))
+
+  p
+}
