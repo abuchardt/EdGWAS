@@ -8,14 +8,6 @@
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
 #' @param rho (Non-negative) regularisation parameter for lasso passed to glasso. rho=0 means no regularisation. Can be a scalar (usual) or a symmetric nouts by nouts matrix, or a vector of length nouts. In the latter case, the penalty matrix has jkth element sqrt(rho[j]*rho[k]).
 #'
-#' @importFrom stats cor cutree dist hclust
-#' @importFrom MESS mfastLmCpp
-#' @importFrom expm sqrtm
-#'
-#' @import glasso
-#' @import glmnet
-#' @import Matrix
-#'
 #' @return Cluster associations. \item{A}{A length(rho) list of matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{rho}{The actual sequence of rho values used.} \item{P}{A length(rho) list of matrices P, the estimated precision matrix (matrix inverse of correlation matrix).}
 #'
 #'

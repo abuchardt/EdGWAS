@@ -2,16 +2,17 @@
 % Please edit documentation in R/plot.cv.edgwas.R
 \name{plot.cv.edgwas}
 \alias{plot.cv.edgwas}
-\title{Plot the cross-validation curve produced by cv.edgwas}
+\title{Plot diagnostics for a cv.edgwas object}
 \usage{
-\method{plot}{cv.edgwas}(x, ...)
+\method{plot}{cv.edgwas}(x, which = c(1L:3L), main = "",
+  ask = prod(par("mfcol")) < length(which) && dev.interactive(), ...)
 }
 \arguments{
 \item{x}{Fitted "cv.edgwas" object.}
 }
 \description{
-Plots the cross-validation curve, and empirical 95% confidence band, as a function of the rho values used.
+Three plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for each value of rho used in the fits (static or interactive).
 }
 \details{
-A plot is produced, and nothing is returned.
+Plots are produced, and nothing is returned.
 }

@@ -2,10 +2,10 @@
 % Please edit documentation in R/cv.edgwas.R
 \name{cv.edgwas}
 \alias{cv.edgwas}
-\title{Cross-validation for EdGwas}
+\title{Cross-validation for edgwas}
 \usage{
 cv.edgwas(x, y, rho = NULL, nfolds = 10, type.measure = "mse",
-  trace = FALSE, ...)
+  trace = NULL, ...)
 }
 \arguments{
 \item{x}{input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.}
@@ -24,7 +24,7 @@ cv.edgwas(x, y, rho = NULL, nfolds = 10, type.measure = "mse",
 Cluster associations. \item{clust}{returns a vector with group memberships}#'
 }
 \description{
-Does k-fold cross-validation for EdGwas, produces a plot, and returns a value for rho.
+Does k-fold cross-validation for edgwas, produces a plot, and returns a value for rho.
 }
 \examples{
 # Gaussian

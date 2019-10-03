@@ -1,6 +1,6 @@
-#' Cross-validation for EdGwas
+#' Cross-validation for edgwas
 #'
-#' Does k-fold cross-validation for EdGwas, produces a plot, and returns a value for rho.
+#' Does k-fold cross-validation for edgwas, produces a plot, and returns a value for rho.
 #'
 #' @param x input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.
 #' @param y response matrix, of dimension nobs x nouts. Quantitative for family="gaussian". For family="binomial" should be either a factor with two levels, or a two-column matrix of counts or proportions (the second column is treated as the target class; for a factor, the last level in alphabetical order is the target class). For "binomial" if y is presented as a vector, it will be coerced into a factor.
@@ -26,7 +26,7 @@
 #'
 #' @export cv.edgwas
 #'
-cv.edgwas <- function(x, y, rho = NULL, nfolds = 10, type.measure = "mse", trace = FALSE, ...) {
+cv.edgwas <- function(x, y, rho = NULL, nfolds = 10, type.measure = "mse", trace = NULL, ...) {
 
   if (missing(type.measure)) {
     type.measure <- "default"
@@ -76,7 +76,7 @@ cv.default <- function(rho, x, y, lengthRho, nfolds, type.measure, ...) {
   mse <- list(NULL)
   for (i in seq(nfolds)) {
 
-    if(trace) cat("i: ", i, ", ")
+    if(!is.null(trace)) cat("i: ", i, ", ")
 
     fold <- foldid == i
 
@@ -95,7 +95,7 @@ cv.default <- function(rho, x, y, lengthRho, nfolds, type.measure, ...) {
     mse[[i]] <- vector("numeric", lengthRho)
     for (j in seq(lengthRho)) {
 
-      if(trace) cat(".")
+      if(!is.null(trace)) cat(".")
 
       w <- expm::sqrtm(outlist$P[[j]]) ## qxq
       wy <- yTrain %*% w ## nrow(xTrain)xq
@@ -120,7 +120,7 @@ cv.default <- function(rho, x, y, lengthRho, nfolds, type.measure, ...) {
       mse[[i]][j] <- mean((yTest - yHat)^2, na.rm = TRUE)
     }
 
-    if(trace) cat("\n")
+    if(!is.null(trace)) cat("\n")
   }
 
   cvm <- rowMeans(do.call(cbind, mse))
