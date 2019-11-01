@@ -5,7 +5,7 @@
 \title{Cross-validation for edgwas}
 \usage{
 cv.edgwas(x, y, rho = NULL, nfolds = 10, type.measure = "mse",
-  trace = NULL, ...)
+  penalty = c("ridge", "lasso"), trace = NULL, logrho = TRUE, ...)
 }
 \arguments{
 \item{x}{input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.}
@@ -26,15 +26,18 @@ Cluster associations. \item{clust}{returns a vector with group memberships}#'
 \description{
 Does k-fold cross-validation for edgwas, produces a plot, and returns a value for rho.
 }
+\details{
+The function runs edgwas nfolds+1 times; the first to get the rho sequence, and then the remainder to compute the fit with each of the folds omitted. The error is accumulated, and the average error and standard deviation over the folds is computed. Note that the results of cv.edgwas are random, since the folds are selected at random. Users can reduce this randomness by running cv.edgwas many times, and averaging the error curves.
+}
 \examples{
 # Gaussian
 N <- 100 #
-q <- 9
+q <- 9 #
 p <- 1000 #
 set.seed(1)
 X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1:2, 1:5] <- 1
+B[1, 1:2] <- 1
 Y <- X \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ###
 pc <- cv.edgwas(x = X, y = Y, nfolds = 5)

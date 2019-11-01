@@ -13,9 +13,9 @@
 #'
 #' @examples
 #' # Gaussian
-#' N <- 1000
+#' N <- 100
 #' q <- 9
-#' p <- 10000
+#' p <- 1000
 #' set.seed(1)
 #' X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
 #' B <- matrix(0, nrow = p, ncol = q)
@@ -28,6 +28,7 @@
 #'
 
 edgwas <- function(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)),
+                   logrho = FALSE,
                    rho.min.ratio = 10e-04
                    #thresh = 1e-07,
                    #dfmax = nvars + 1, pmax = min(dfmax * 2 + 20, nvars),
@@ -93,10 +94,16 @@ edgwas <- function(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)
   # Calculate rho path (first get rho_max):
   if (is.null(rho)) {
     rho_max <- mean(colSums(SigmaPRS)) #max(abs(colSums(SigmaPRS)))
-    rholist <- round(exp(seq(log(rho_max*flmin), log(rho_max),
-                             length.out = nrho)), digits = 10)
-    #rholist <- round(seq(rho_max*flmin, rho_max,
-    #                     length.out = nrho), digits = 10)
+    if(logrho == 0) {
+      rholist <- round(seq(rho_max*flmin, rho_max,
+                           length.out = nrho), digits = 10)
+    } else if (logrho == 1) {
+      rholist <- round(exp(seq(log(rho_max*flmin), log(rho_max),
+                               length.out = nrho)), digits = 10)
+    } else if (logrho == 2) {
+      rholist <- round(log(seq(exp(rho_max*flmin), exp(rho_max),
+                               length.out = nrho)), digits = 10)
+    }
   } else {
     rholist <- rho
   }
@@ -105,7 +112,8 @@ edgwas <- function(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)
   # Graphical lasso
   # Estimates a sparse inverse covariance matrix using a lasso (L1) penalty
 
-  glPRS <- glasso::glassopath(s = SigmaPRS, rho = rholist, trace = FALSE)
+  glPRS <- glasso::glassopath(s = SigmaPRS, rho = rholist,
+                              penalize.diagonal = FALSE, trace = 0)
   rho <- glPRS$rho
 
   A <- list(NULL)
@@ -120,7 +128,7 @@ edgwas <- function(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)
   })
 
   # Return
-  fit <- list(A = A, rho = rho, P = P) #clust = outcl, dist = d)
+  fit <- list(A = A, rho = rho, P = P, logrho = logrho) #clust = outcl, dist = d)
   class(fit) <- "edgwas"
   fit
 }

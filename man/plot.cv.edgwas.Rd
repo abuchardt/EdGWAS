@@ -4,14 +4,15 @@
 \alias{plot.cv.edgwas}
 \title{Plot diagnostics for a cv.edgwas object}
 \usage{
-\method{plot}{cv.edgwas}(x, which = c(1L:3L), main = "",
-  ask = prod(par("mfcol")) < length(which) && dev.interactive(), ...)
+\method{plot}{cv.edgwas}(x, which = c(1L:5L), main = "", xlab = NULL,
+  ylab = NULL, ask = prod(par("mfcol")) < length(which) &&
+  dev.interactive(), pointsCol = NULL, ylim = NULL, ...)
 }
 \arguments{
 \item{x}{Fitted "cv.edgwas" object.}
 }
 \description{
-Three plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for each value of rho used in the fits (static or interactive).
+Four plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and three types of adjacency matrix plot; static plots for each value of rho used in the fits, interactive plots for the values of rho used in the fits, and a single plot for the optimal value of rho.
 }
 \details{
 Plots are produced, and nothing is returned.

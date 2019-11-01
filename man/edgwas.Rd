@@ -5,7 +5,7 @@
 \title{Cluster multiple traits via PRS}
 \usage{
 edgwas(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)),
-  rho.min.ratio = 0.001)
+  logrho = FALSE, rho.min.ratio = 0.001)
 }
 \arguments{
 \item{x}{Input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.}
@@ -25,9 +25,9 @@ This function clusters traits that share some genetic component via polygenic ri
 }
 \examples{
 # Gaussian
-N <- 1000
+N <- 100
 q <- 9
-p <- 10000
+p <- 1000
 set.seed(1)
 X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
