@@ -2,38 +2,52 @@
 % Please edit documentation in R/edgwas.R
 \name{edgwas}
 \alias{edgwas}
-\title{Cluster multiple traits via PRS}
+\title{Cluster multiple traits via polygenic scores}
 \usage{
-edgwas(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)),
-  logrho = FALSE, rho.min.ratio = 0.001)
+edgwas(x, y, scores = TRUE, rho = NULL, nrho = ifelse(is.null(rho),
+  40, length(rho)), logrho = FALSE, rho.min.ratio = 0.001)
 }
 \arguments{
-\item{x}{Input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.}
+\item{x}{Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.}
 
 \item{y}{Quantitative response matrix, of dimension nobs x nouts.}
 
-\item{rho}{(Non-negative) regularisation parameter for lasso passed to glasso. rho=0 means no regularisation. Can be a scalar (usual) or a symmetric nouts by nouts matrix, or a vector of length nouts. In the latter case, the penalty matrix has jkth element sqrt(rho[j]*rho[k]).}
+\item{scores}{Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).}
+
+\item{rho}{(Non-negative) regularisation parameter for lasso passed to glasso. \code{rho=0} means no regularisation. Can be a scalar (usual) or a symmetric nouts by nouts matrix, or a vector of length nouts. In the latter case, the penalty matrix has jkth element sqrt(rho[j]*rho[k]).}
+
+\item{nrho}{The number of rho values - default is 40.}
+
+\item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.}
+
+\item{rho.min.ratio}{Smallest value for rho, as a fraction of rho.max, the (data derived) entry value (i.e. the smallest value for which all coefficients are zero) - default is 10e-04.}
+
+\item{call}{The call that produced this object.}
+
+\item{alpha}{An nouts x length(rho) matrix of intercepts.}
+
+\item{beta}{An nouts x length(rho) matrix of coefficients.}
 }
 \value{
-Cluster associations. \item{A}{A length(rho) list of matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{rho}{The actual sequence of rho values used.} \item{P}{A length(rho) list of matrices P, the estimated precision matrix (matrix inverse of correlation matrix).}
+An object of class "edgwas" is returned. \item{call}{The call that produced this object.} \item{alpha}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.edgwas}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.}
 }
 \description{
-This function clusters traits that share some genetic component via polygenic risk scores (PRSs). It fits a sparse precision matrix via graphical lasso. The regularisation path is computed for the lasso penalty at a grid of values for the regularisation parameter rho.
+This function clusters traits that share some genetic component via polygenic scores (PSs). It fits a sparse precision matrix via graphical lasso. The regularisation path is computed for the lasso penalty at a grid of values for the regularisation parameter rho.
 }
 \details{
 ...
 }
 \examples{
 # Gaussian
-N <- 100
-q <- 9
-p <- 1000
+N <- 500 #
+q <- 10 #
+p <- 20 #
 set.seed(1)
-X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 1
-Y <- X \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+B[1, 1:2] <- 10
+y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ###
-pc <- edgwas(x = X, y = Y, rho = 0.1)
+pc <- edgwas(x, y, scores = FALSE)
 
 }

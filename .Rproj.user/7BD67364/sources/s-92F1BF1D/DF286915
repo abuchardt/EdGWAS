@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1572623819717.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3035000319",
+    "id" : "DF286915",
+    "lastKnownWriteTime" : 1575990360,
+    "last_content_update" : 1575990360868,
+    "path" : "~/wip/R/edgwas/R/plot.cv.edgwas.R",
+    "project_path" : "R/plot.cv.edgwas.R",
+    "properties" : {
+        "cursorPosition" : "59,19",
+        "scrollLine" : "48",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 6,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

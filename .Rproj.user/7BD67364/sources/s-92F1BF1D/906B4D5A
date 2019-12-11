@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1572623735071.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "906B4D5A",
+    "lastKnownWriteTime" : 1575624046,
+    "last_content_update" : 1575624046295,
+    "path" : "~/wip/R/edgwas/R/EdGwas-package.R",
+    "project_path" : "R/EdGwas-package.R",
+    "properties" : {
+        "cursorPosition" : "20,29",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

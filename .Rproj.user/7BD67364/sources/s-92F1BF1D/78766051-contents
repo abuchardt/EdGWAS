@@ -1,0 +1,13 @@
+
+q <- 2
+N <- 1000
+PRS <- matrix(sample(0:2, N*q, replace=TRUE), nrow=N, ncol=q)
+
+B <- matrix(10, nrow = q, ncol = q)
+
+Y <- PRS %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+fit1 <- lm(Y[,1] ~ PRS[,1])
+fit2 <- lm(Y[,2] ~ PRS[,2])
+
+mvfit <- lm(Y ~ PRS[, 1] + PRS[, 2])

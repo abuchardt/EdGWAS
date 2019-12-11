@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1575207095117.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "244E474B",
+    "lastKnownWriteTime" : 1576059609,
+    "last_content_update" : 1576059609796,
+    "path" : "~/wip/R/edgwas/R/matplot.edgwas.R",
+    "project_path" : "R/matplot.edgwas.R",
+    "properties" : {
+        "cursorPosition" : "16,58",
+        "scrollLine" : "7",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

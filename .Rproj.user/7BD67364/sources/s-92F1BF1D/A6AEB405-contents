@@ -1,0 +1,43 @@
+#' Cluster multiple traits via polygenic scores
+#'
+#' This function generates polygenic scores (PSs) by fitting a univariate simple linear regression model for each feature x on each outcome component y.
+#'
+#' For each outcome component \eqn{Y_l} we fit a univariate simple linear regression on the form \deqn{Y_l = X_j B_{jl} + E_l,} where the scalar \eqn{B_{jl}} is a regression coefficient \eqn{E_l} is is a vector of length nobs of independent Gaussian random errors. For a multivariate outcome \eqn{Y} we define the PS for each outcome component l = 1,...,q and each individual i = 1,...,N by \deqn{PS_{il} = \sum_{j=1}^p X_{ij}\hat{B}_{jl},} where \eqn{\hat{B}_{jl}} is the maximum likelihood estimate of \eqn{B_{jl}}.
+#'
+#' @param x Input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.
+#' @param y Quantitative response matrix, of dimension nobs x nouts.
+#'
+#' @return An object of class "ps.edgwas" is returned. \item{PS}{A matrix of dimension nobs x nouts of polygenic scores.}
+#'
+#' @examples
+#' # Gaussian
+#' N <- 500 #
+#' q <- 10 #
+#' p <- 20 #
+#' set.seed(1)
+#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' B <- matrix(0, nrow = p, ncol = q)
+#' B[1, 1:2] <- 10
+#' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' ###
+#' ps <- ps.edgwas(x, y)
+#'
+#' @export ps.edgwas
+#'
+
+ps.edgwas <- function(x, y) {
+
+  # Compute q simple GWASs
+  gwasResults <- lapply(1:ncol(y), FUN = function(k)
+    MESS::mfastLmCpp(y = y[,k], x = x)$coefficients)
+  # Save all pxq regression coefficients
+  betaHatMat <- do.call(cbind, gwasResults)
+
+  # Compute Nxq PSs
+  PS <- mapply(1:ncol(y), FUN = function(k) x %*% betaHatMat[,k])
+
+  # Return
+  obj <- list(PS = PS)
+  class(obj) <- "ps.edgwas"
+  obj
+}

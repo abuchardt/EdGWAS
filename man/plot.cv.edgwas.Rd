@@ -4,16 +4,55 @@
 \alias{plot.cv.edgwas}
 \title{Plot diagnostics for a cv.edgwas object}
 \usage{
-\method{plot}{cv.edgwas}(x, which = c(1L:5L), main = "", xlab = NULL,
-  ylab = NULL, ask = prod(par("mfcol")) < length(which) &&
-  dev.interactive(), pointsCol = NULL, ylim = NULL, ...)
+\method{plot}{cv.edgwas}(x, which = c(1L:4L), zoom = 0L, main = "",
+  xlab = NULL, ylab = NULL, ask = prod(par("mfcol")) < length(which)
+  && dev.interactive(), pointsCol = "#D95F02", ylim = NULL,
+  xlim = NULL, ...)
 }
 \arguments{
 \item{x}{Fitted "cv.edgwas" object.}
+
+\item{which}{If a subset of the plots is required, specify a subset of the numbers \code{1:5}.}
+
+\item{zoom}{A non-negative integer determining the number of points closest to rho.min to show in the plot of the cross-validation curve (\code{which = 1}). Default is \code{zoom = 0L} for plotting the full curve.}
+
+\item{main}{An overall title for the plot: see \code{\link{title}}}
+
+\item{xlab}{A title for the x axis: see \code{\link{title}}}
+
+\item{ylab}{A title for the y axis: see \code{\link{title}}}
+
+\item{ask}{Logical; if \code{TRUE}, the user is \emph{ask}ed before each plot, see \code{\link{par}(ask=.)}.}
+
+\item{pointsCol}{The color for points corresponding to rho.min and rho.1se. Default is pointsCol = "#D95F02".}
+
+\item{ylim}{The y limits of the plot.}
+
+\item{xlim}{The x limits of the plot.}
+
+\item{...}{Other paramters to be passed through to plotting functions.}
 }
 \description{
 Four plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and three types of adjacency matrix plot; static plots for each value of rho used in the fits, interactive plots for the values of rho used in the fits, and a single plot for the optimal value of rho.
 }
 \details{
 Plots are produced, and nothing is returned.
+}
+\examples{
+N <- 500 #
+q <- 10 #
+p <- 20 #
+set.seed(1)
+x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:2] <- 10
+y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+###
+pc <- cv.edgwas(x, y, trace = 1)
+plot(pc, 1)
+plot(pc, 2)
+
+}
+\seealso{
+{\code{\link{edgwas}} and \code{\link{cv.edgwas}}}
 }
