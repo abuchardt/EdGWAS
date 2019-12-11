@@ -11,7 +11,6 @@
 #' @return The object returned depends on type.
 #'
 #' @examples
-#'
 #' N <- 1000
 #' q <- 10
 #' p <- 100

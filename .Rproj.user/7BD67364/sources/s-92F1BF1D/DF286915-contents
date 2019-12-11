@@ -19,7 +19,6 @@
 #' @seealso{\code{\link{edgwas}} and \code{\link{cv.edgwas}}}
 #'
 #' @examples
-# Gaussian
 #' N <- 500 #
 #' q <- 10 #
 #' p <- 20 #

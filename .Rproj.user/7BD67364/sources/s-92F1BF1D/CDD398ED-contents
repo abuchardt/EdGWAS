@@ -15,7 +15,6 @@
 #' @return An object of class "edgwas" is returned. \item{call}{The call that produced this object.} \item{alpha}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.edgwas}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.}
 #'
 #' @examples
-#' # Gaussian
 #' N <- 500 #
 #' q <- 10 #
 #' p <- 20 #

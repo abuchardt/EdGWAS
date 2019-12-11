@@ -1,4 +1,4 @@
-#' Cluster multiple traits via polygenic scores
+#' Generate polygenic scores
 #'
 #' This function generates polygenic scores (PSs) by fitting a univariate simple linear regression model for each feature x on each outcome component y.
 #'
@@ -10,7 +10,6 @@
 #' @return An object of class "ps.edgwas" is returned. \item{PS}{A matrix of dimension nobs x nouts of polygenic scores.}
 #'
 #' @examples
-#' # Gaussian
 #' N <- 500 #
 #' q <- 10 #
 #' p <- 20 #

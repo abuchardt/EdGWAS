@@ -2,7 +2,7 @@
 % Please edit documentation in R/ps.edgwas.R
 \name{ps.edgwas}
 \alias{ps.edgwas}
-\title{Cluster multiple traits via polygenic scores}
+\title{Generate polygenic scores}
 \usage{
 ps.edgwas(x, y)
 }
@@ -21,7 +21,6 @@ This function generates polygenic scores (PSs) by fitting a univariate simple li
 For each outcome component \eqn{Y_l} we fit a univariate simple linear regression on the form \deqn{Y_l = X_j B_{jl} + E_l,} where the scalar \eqn{B_{jl}} is a regression coefficient \eqn{E_l} is is a vector of length nobs of independent Gaussian random errors. For a multivariate outcome \eqn{Y} we define the PS for each outcome component l = 1,...,q and each individual i = 1,...,N by \deqn{PS_{il} = \sum_{j=1}^p X_{ij}\hat{B}_{jl},} where \eqn{\hat{B}_{jl}} is the maximum likelihood estimate of \eqn{B_{jl}}.
 }
 \examples{
-# Gaussian
 N <- 500 #
 q <- 10 #
 p <- 20 #

@@ -25,7 +25,6 @@ The object returned depends on type.
 Similar to other predict methods, this function predicts fitted values and extract coefficients from a fitted "edgwas" object.
 }
 \examples{
-
 N <- 1000
 q <- 10
 p <- 100

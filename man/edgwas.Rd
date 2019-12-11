@@ -32,7 +32,6 @@ This function clusters traits that share some genetic component via polygenic sc
 ...
 }
 \examples{
-# Gaussian
 N <- 500 #
 q <- 10 #
 p <- 20 #

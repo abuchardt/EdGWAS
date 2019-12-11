@@ -10,7 +10,6 @@
 #' @return The object returned depends on the ... argument which is passed on to the predict method for edgwas objects.
 #'
 #' @examples
-#'
 #' N <- 1000
 #' q <- 10
 #' p <- 100

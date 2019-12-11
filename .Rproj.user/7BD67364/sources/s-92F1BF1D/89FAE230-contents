@@ -2,7 +2,7 @@
 #'
 #' Does k-fold cross-validation for edgwas, produces multiple plots, and returns a value for rho.
 #'
-#' @param x Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.
+#' @param x Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of polygenic scores (PSs) if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
 #' @param scores Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).
 #' @param rho (Non-negative) optional user-supplied rho sequence; default is \code{NULL}, and EdGwas chooses its own sequence.
@@ -17,8 +17,6 @@
 #' @return An object of class "cv.edgwas" is returned, which is a list with results of the cross-validation fit. \item{rho}{The values of rho used in the fits.} \item{cvm}{The mean cross-validated error - a vector of length length(rho).} \item{cvsd}{ The estimate of the standard error of cvm.} \item{cvup}{Upper curve = cvm + cvsd.} \item{cvlo}{Lower curve = cvm - cvsd.} \item{name}{A text string indicating type of measure (for plotting purposes).} \item{rho.min}{Value of rho that gives minimum cvm.} \item{rho.1se}{Smallest value of lambda such that the error is within 1 standard error of the minimum.} \item{edgwas.fit}{A fitted edgwas object for the full data.}
 #'
 #' @examples
-#'
-#' # Gaussian
 #' N <- 1000 #
 #' q <- 10 #
 #' p <- 100

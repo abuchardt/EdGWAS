@@ -9,7 +9,7 @@ cv.edgwas(x, y, scores = TRUE, rho = NULL, nfolds = 10,
   length(rho)), logrho = FALSE, rho.min.ratio = 0.001)
 }
 \arguments{
-\item{x}{Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.}
+\item{x}{Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of polygenic scores (PSs) if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.}
 
 \item{y}{Quantitative response matrix, of dimension nobs x nouts.}
 
@@ -37,8 +37,6 @@ Does k-fold cross-validation for edgwas, produces multiple plots, and returns a 
 The function runs edgwas nfolds+1 times; the first to get the rho sequence, and then the remainder to compute the fit with each of the folds omitted. The error is accumulated, and the average error and standard deviation over the folds is computed. Note that the results of cv.edgwas are random, since the folds are selected at random. Users can reduce this randomness by running cv.edgwas many times, and averaging the error curves.
 }
 \examples{
-
-# Gaussian
 N <- 1000 #
 q <- 10 #
 p <- 100

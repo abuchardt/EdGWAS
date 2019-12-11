@@ -23,7 +23,6 @@ The object returned depends on the ... argument which is passed on to the predic
 This function makes predictions from a cross-validated edgwas model, using the stored "edgwas.fit" object, and the optimal value chosen for rho.
 }
 \examples{
-
 N <- 1000
 q <- 10
 p <- 100
