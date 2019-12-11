@@ -5,7 +5,7 @@
 \title{Extract coefficients from a edgwas object}
 \usage{
 \method{predict}{edgwas}(object, newPS, rho = NULL, type = c("link",
-  "coefficients"))
+  "coefficients"), ...)
 }
 \arguments{
 \item{object}{Fitted "edgwas" object.}
@@ -15,6 +15,8 @@
 \item{rho}{Value(s) of the penalty parameter rho at which predictions are required. Default (NULL) is the entire sequence used to create the model.}
 
 \item{type}{Type of prediction required. Type "link" returns a list of length nouts of matrices of dimension nobs x length(rho) of the fitted values for each response. Type "coefficients" gives the coefficients at the requested values for rho.}
+
+\item{...}{additional arguments affecting the predictions produced.}
 }
 \value{
 The object returned depends on type.

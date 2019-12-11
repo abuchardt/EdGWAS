@@ -11,7 +11,7 @@
 #'
 #' @details Plots are produced, and nothing is returned.
 #'
-#' @export matplot.edgwas
+#' @export
 #'
 
 matplot.edgwas <- function (x, s = c("rho.min", "rho.1se"), A = NULL,

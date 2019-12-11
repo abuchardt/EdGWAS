@@ -21,7 +21,7 @@
 #' @references glasso, glmnet
 NULL
 
-#' @importFrom stats cor cov lm coef as.dist hclust
+#' @importFrom stats cor cov lm coef predict as.dist hclust
 #' @importFrom MESS mfastLmCpp
 #' @importFrom expm sqrtm
 #' @importFrom plotly layout animation_slider ggplotly

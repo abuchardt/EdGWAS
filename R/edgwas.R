@@ -4,9 +4,6 @@
 #'
 #' ...
 #'
-#' @param call The call that produced this object.
-#' @param alpha An nouts x length(rho) matrix of intercepts.
-#' @param beta An nouts x length(rho) matrix of coefficients.
 #' @param x Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
 #' @param scores Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).
@@ -30,7 +27,7 @@
 #' ###
 #' pc <- edgwas(x, y, scores = FALSE)
 #'
-#' @export edgwas
+#' @export
 #'
 
 edgwas <- function(x, y, scores = TRUE, rho = NULL,

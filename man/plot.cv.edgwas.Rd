@@ -48,7 +48,7 @@ B <- matrix(0, nrow = p, ncol = q)
 B[1, 1:2] <- 10
 y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ###
-pc <- cv.edgwas(x, y, trace = 1)
+pc <- cv.edgwas(x, y, scores = FALSE)
 plot(pc, 1)
 plot(pc, 2)
 

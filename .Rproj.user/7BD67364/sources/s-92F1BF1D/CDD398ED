@@ -5,15 +5,15 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "588182859",
+    "hash" : "0",
     "id" : "CDD398ED",
-    "lastKnownWriteTime" : 1576070750,
-    "last_content_update" : 1576070750742,
+    "lastKnownWriteTime" : 1576074563,
+    "last_content_update" : 1576074563786,
     "path" : "~/wip/R/edgwas/R/edgwas.R",
     "project_path" : "R/edgwas.R",
     "properties" : {
-        "cursorPosition" : "17,219",
-        "scrollLine" : "11"
+        "cursorPosition" : "29,10",
+        "scrollLine" : "23"
     },
     "relative_order" : 2,
     "source_on_save" : false,

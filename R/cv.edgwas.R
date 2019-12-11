@@ -35,7 +35,7 @@
 #' plot(pc, 2)
 #' }
 #'
-#' @export cv.edgwas
+#' @export
 #'
 cv.edgwas <- function(x, y, scores = TRUE, rho = NULL, nfolds = 10,
                       type.measure = c("mse", "mae"),

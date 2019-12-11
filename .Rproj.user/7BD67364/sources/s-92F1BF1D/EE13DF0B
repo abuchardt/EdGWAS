@@ -7,12 +7,12 @@
     "folds" : "",
     "hash" : "0",
     "id" : "EE13DF0B",
-    "lastKnownWriteTime" : 1576069155,
-    "last_content_update" : 1576069155191,
+    "lastKnownWriteTime" : 1576074898,
+    "last_content_update" : 1576074898061,
     "path" : "~/wip/R/edgwas/R/predict.cv.edgwas.R",
     "project_path" : "R/predict.cv.edgwas.R",
     "properties" : {
-        "cursorPosition" : "38,27",
+        "cursorPosition" : "23,20",
         "scrollLine" : "19",
         "tempName" : "Untitled1"
     },

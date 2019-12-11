@@ -7,13 +7,13 @@
     "folds" : "",
     "hash" : "0",
     "id" : "89FAE230",
-    "lastKnownWriteTime" : 1576068946,
-    "last_content_update" : 1576068946137,
+    "lastKnownWriteTime" : 1576074886,
+    "last_content_update" : 1576074886188,
     "path" : "~/wip/R/edgwas/R/cv.edgwas.R",
     "project_path" : "R/cv.edgwas.R",
     "properties" : {
-        "cursorPosition" : "4,67",
-        "scrollLine" : "0",
+        "cursorPosition" : "29,6",
+        "scrollLine" : "27",
         "tempName" : "Untitled1"
     },
     "relative_order" : 4,

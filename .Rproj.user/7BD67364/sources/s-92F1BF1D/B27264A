@@ -7,13 +7,13 @@
     "folds" : "",
     "hash" : "0",
     "id" : "B27264A",
-    "lastKnownWriteTime" : 1576070776,
-    "last_content_update" : 1576070776,
+    "lastKnownWriteTime" : 1576075884,
+    "last_content_update" : 1576075884,
     "path" : "~/wip/R/edgwas/NAMESPACE",
     "project_path" : "NAMESPACE",
     "properties" : {
         "cursorPosition" : "2,8",
-        "scrollLine" : "0"
+        "scrollLine" : "2"
     },
     "relative_order" : 7,
     "source_on_save" : false,

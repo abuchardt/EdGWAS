@@ -29,11 +29,11 @@
 #' B[1, 1:2] <- 10
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 #' ###
-#' pc <- cv.edgwas(x, y, trace = 1)
+#' pc <- cv.edgwas(x, y, scores = FALSE)
 #' plot(pc, 1)
 #' plot(pc, 2)
 #'
-#' @export plot.cv.edgwas
+#' @export
 #'
 
 plot.cv.edgwas <- function (x, which = c(1L:4L), zoom = 0L,

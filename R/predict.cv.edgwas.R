@@ -24,7 +24,7 @@
 #' ps <- ps.edgwas(x[1:100, ], y[1:100, ])$PS
 #' newy <- predict(pc, newPS = ps, rho = "rho.min")
 #'
-#' @export predict.cv.edgwas
+#' @export
 #'
 
 predict.cv.edgwas <- function(object, newPS, rho = c("rho.min","rho.1se"), ...){

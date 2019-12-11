@@ -22,7 +22,7 @@
 #' ###
 #' ps <- ps.edgwas(x, y)
 #'
-#' @export ps.edgwas
+#' @export
 #'
 
 ps.edgwas <- function(x, y) {

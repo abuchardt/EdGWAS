@@ -7,13 +7,13 @@
     "folds" : "",
     "hash" : "0",
     "id" : "244E474B",
-    "lastKnownWriteTime" : 1576059609,
-    "last_content_update" : 1576059609796,
+    "lastKnownWriteTime" : 1576074904,
+    "last_content_update" : 1576074904816,
     "path" : "~/wip/R/edgwas/R/matplot.edgwas.R",
     "project_path" : "R/matplot.edgwas.R",
     "properties" : {
-        "cursorPosition" : "16,58",
-        "scrollLine" : "7",
+        "cursorPosition" : "9,22",
+        "scrollLine" : "6",
         "tempName" : "Untitled1"
     },
     "relative_order" : 5,
