@@ -29,48 +29,36 @@ library(EdGwas)
 #>   [.quosures     rlang
 #>   c.quosures     rlang
 #>   print.quosures rlang
-N <- 1000 
-q <- 10
-p <- 100
+# Gaussian
+N <- 100 #
+q <- 9
+p <- 500 #
 set.seed(1)
-x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 5
-y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
-```
-
-Compute polygenic scores
-
-``` r
-ps <- ps.edgwas(x, y)$PS
+B[1:2, 1:5] <- 1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ```
 
 Run 5-fold cross-validation for edgwas
 
 ``` r
-pc <- cv.edgwas(ps, y)
+cvfit <- cv.edgwas(x = X, y = Y, nfolds = 5)
+#> i:  1 , ....................
+#> i:  2 , ....................
+#> i:  3 , ....................
+#> i:  4 , ....................
+#> i:  5 , ....................
 ```
-
-Plot cross-validated error curve
 
 ``` r
-plot(pc, 1)
+plot(cvfit, which = 1)
 ```
 
-![](README-plot1.png)
-
-Zoom
+<img src="man/figures/README-p1-1.png" width="100%" />
 
 ``` r
-plot(pc, 1, zoom = 10)
+plot(cvfit, which = 3) 
 ```
 
-![](README-plot1z.png)
-
-Plot estimated optimal adjacency matrix
-
-``` r
-plot(pc, 2)
-```
-
-![](README-plot2.png)
+<img src="man/figures/README-p3-1.png" width="100%" />

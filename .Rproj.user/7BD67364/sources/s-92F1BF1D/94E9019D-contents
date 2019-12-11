@@ -1,6 +1,5 @@
 ---
-output: html_document
-keep_md: true
+output: github_document
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -13,6 +12,7 @@ knitr::opts_chunk$set(
   out.width = "100%"
 )
 ```
+
 # EdGwas
 
 <!-- badges: start -->
@@ -98,3 +98,4 @@ dev.off()
 ```
 
 ![](README-plot2.png)
+
