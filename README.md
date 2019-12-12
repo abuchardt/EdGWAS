@@ -45,7 +45,7 @@ Compute polygenic scores
 ps <- ps.edgwas(x, y)$PS
 ```
 
-Run 5-fold cross-validation for edgwas
+Run 10-fold cross-validation for edgwas
 
 ``` r
 pc <- cv.edgwas(ps, y)
