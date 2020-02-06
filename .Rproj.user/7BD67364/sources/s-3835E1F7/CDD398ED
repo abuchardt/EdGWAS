@@ -7,13 +7,13 @@
     "folds" : "",
     "hash" : "0",
     "id" : "CDD398ED",
-    "lastKnownWriteTime" : 1576076929,
-    "last_content_update" : 1576076929442,
+    "lastKnownWriteTime" : 1579783506,
+    "last_content_update" : 1579783506208,
     "path" : "~/wip/R/edgwas/R/edgwas.R",
     "project_path" : "R/edgwas.R",
     "properties" : {
-        "cursorPosition" : "17,0",
-        "scrollLine" : "15"
+        "cursorPosition" : "152,0",
+        "scrollLine" : "127"
     },
     "relative_order" : 2,
     "source_on_save" : false,

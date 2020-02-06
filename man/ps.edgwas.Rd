@@ -25,9 +25,9 @@ N <- 500 #
 q <- 10 #
 p <- 20 #
 set.seed(1)
-x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 10
+B[1, 1:2] <- 2
 y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ###
 ps <- ps.edgwas(x, y)

@@ -4,15 +4,13 @@
 \alias{edgwas}
 \title{Cluster multiple traits via polygenic scores}
 \usage{
-edgwas(x, y, scores = TRUE, rho = NULL, nrho = ifelse(is.null(rho),
-  40, length(rho)), logrho = FALSE, rho.min.ratio = 0.001)
+edgwas(x, y, rho = NULL, nrho = ifelse(is.null(rho), 40, length(rho)),
+  logrho = FALSE, rho.min.ratio = 0.001)
 }
 \arguments{
 \item{x}{Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.}
 
 \item{y}{Quantitative response matrix, of dimension nobs x nouts.}
-
-\item{scores}{Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).}
 
 \item{rho}{(Non-negative) regularisation parameter for lasso passed to glasso. \code{rho=0} means no regularisation. Can be a scalar (usual) or a symmetric nouts by nouts matrix, or a vector of length nouts. In the latter case, the penalty matrix has jkth element sqrt(rho[j]*rho[k]).}
 
@@ -32,15 +30,21 @@ This function clusters traits that share some genetic component via polygenic sc
 ...
 }
 \examples{
-N <- 500 #
+N <- 1000 #
 q <- 10 #
-p <- 20 #
+p <- 1000 #
 set.seed(1)
-x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+# Sample 1
+x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 10
+B[1, 1:2] <- 2.5
+y0 <- x0 \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+beta <- ps.edgwas(x0, y0)$beta
+# Sample 2
+x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+ps <- x \%*\% beta
 ###
-pc <- edgwas(x, y, scores = FALSE)
+pc <- edgwas(ps, y)
 
 }

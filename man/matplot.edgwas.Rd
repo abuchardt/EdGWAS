@@ -5,8 +5,8 @@
 \title{Adjacency matrix plot for a cv.edgwas object}
 \usage{
 matplot.edgwas(x, s = c("rho.min", "rho.1se"), A = NULL,
-  col = "darkgrey", bty = "n", axes = TRUE, frame.plot = FALSE,
-  ...)
+  col = "darkgrey", col.border = "#D95F02", bty = "n", axes = TRUE,
+  frame.plot = FALSE, ...)
 }
 \arguments{
 \item{x}{Fitted "cv.edgwas" object.}

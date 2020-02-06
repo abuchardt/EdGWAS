@@ -25,17 +25,28 @@ The object returned depends on type.
 Similar to other predict methods, this function predicts fitted values and extract coefficients from a fitted "edgwas" object.
 }
 \examples{
-N <- 1000
-q <- 10
-p <- 100
+N <- 1000 #
+q <- 10 #
+p <- 1000 #
 set.seed(1)
-x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+# Sample 1
+x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 5
+B[1, 1:2] <- 2.5
+y0 <- x0 \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+beta <- ps.edgwas(x0, y0)$beta
+# Sample 2
+x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+ps <- x \%*\% beta
 ###
-pc <- edgwas(x[-(1:100), ], y[-(1:100), ], scores = FALSE)
-ps <- ps.edgwas(x[1:100, ], y[1:100, ])$PS
-newy <- predict(pc, newPS = ps)
+pc <- cv.edgwas(ps[-(1:100), ], y[-(1:100), ])
+newy <- predict(pc, newPS = ps[(1:100), ], rho = max(pc$rho))[[1]]
+
+mean((newy[,1] - y[1:100, 1])^2)
+pss <- ps[-(1:100), 1]
+lmfit <- lm(y[-(1:100), 1] ~ pss)
+newylm <- predict(lmfit, newdata = data.frame(pss = ps[(1:100), 1]))
+mean((newylm - y[1:100, 1])^2)
 
 }

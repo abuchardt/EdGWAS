@@ -4,16 +4,14 @@
 \alias{cv.edgwas}
 \title{Cross-validation for edgwas}
 \usage{
-cv.edgwas(x, y, scores = TRUE, rho = NULL, nfolds = 10,
-  type.measure = c("mse", "mae"), nrho = ifelse(is.null(rho), 40,
-  length(rho)), logrho = FALSE, rho.min.ratio = 0.001)
+cv.edgwas(x, y, rho = NULL, nfolds = 10, type.measure = c("mse",
+  "mae"), nrho = ifelse(is.null(rho), 40, length(rho)), logrho = FALSE,
+  rho.min.ratio = 0.001)
 }
 \arguments{
-\item{x}{Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of polygenic scores (PSs) if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.}
+\item{x}{Input matrix, of dimension nobs x nvars; each row is an observation vector. A matrix of polygenic scores (PSs) with nvars = nouts. Can be in sparse matrix format.}
 
 \item{y}{Quantitative response matrix, of dimension nobs x nouts.}
-
-\item{scores}{Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).}
 
 \item{rho}{(Non-negative) optional user-supplied rho sequence; default is \code{NULL}, and EdGwas chooses its own sequence.}
 
@@ -39,14 +37,20 @@ The function runs edgwas nfolds+1 times; the first to get the rho sequence, and 
 \examples{
 N <- 1000 #
 q <- 10 #
-p <- 100
+p <- 1000 #
 set.seed(1)
-x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+# Sample 1
+x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 5
+B[1, 1:2] <- 2.5
+y0 <- x0 \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+beta <- ps.edgwas(x0, y0)$beta
+# Sample 2
+x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+ps <- x \%*\% beta
 ###
-pc <- cv.edgwas(x, y, scores = FALSE)
+pc <- cv.edgwas(ps, y)
 \dontrun{
 plot(pc, 1)
 plot(pc, 1, zoom = 10)

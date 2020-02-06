@@ -5,14 +5,14 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "1827231032",
+    "hash" : "0",
     "id" : "906B4D5A",
-    "lastKnownWriteTime" : 1576076082,
-    "last_content_update" : 1576076082361,
+    "lastKnownWriteTime" : 1580119004,
+    "last_content_update" : 1580119004652,
     "path" : "~/wip/R/edgwas/R/EdGwas-package.R",
     "project_path" : "R/EdGwas-package.R",
     "properties" : {
-        "cursorPosition" : "8,131",
+        "cursorPosition" : "24,34",
         "scrollLine" : "0",
         "tempName" : "Untitled1"
     },

@@ -2,9 +2,8 @@
 #'
 #' Does k-fold cross-validation for edgwas, produces multiple plots, and returns a value for rho.
 #'
-#' @param x Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of polygenic scores (PSs) if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.
+#' @param x Input matrix, of dimension nobs x nvars; each row is an observation vector. A matrix of polygenic scores (PSs) with nvars = nouts. Can be in sparse matrix format.
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
-#' @param scores Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).
 #' @param rho (Non-negative) optional user-supplied rho sequence; default is \code{NULL}, and EdGwas chooses its own sequence.
 #' @param nfolds Number of folds - default is 10. Although nfolds can be as large as the sample size (leave-one-out CV), it is not recommended for large datasets. Smallest value allowable is \code{nfolds = 3}.
 #' @param type.measure Loss to use for cross-validation. Currently two options; the default is \code{type.measure="mse"}, which uses the mean-squared error. \code{type.measure = "mae"} gives the mean absolute error.
@@ -19,14 +18,20 @@
 #' @examples
 #' N <- 1000 #
 #' q <- 10 #
-#' p <- 100
+#' p <- 1000 #
 #' set.seed(1)
-#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' # Sample 1
+#' x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' B <- matrix(0, nrow = p, ncol = q)
-#' B[1, 1:2] <- 5
+#' B[1, 1:2] <- 2.5
+#' y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' beta <- ps.edgwas(x0, y0)$beta
+#' # Sample 2
+#' x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' ps <- x %*% beta
 #' ###
-#' pc <- cv.edgwas(x, y, scores = FALSE)
+#' pc <- cv.edgwas(ps, y)
 #' \dontrun{
 #' plot(pc, 1)
 #' plot(pc, 1, zoom = 10)
@@ -35,7 +40,7 @@
 #'
 #' @export
 #'
-cv.edgwas <- function(x, y, scores = TRUE, rho = NULL, nfolds = 10,
+cv.edgwas <- function(x, y, rho = NULL, nfolds = 10,
                       type.measure = c("mse", "mae"),
                       nrho = ifelse(is.null(rho), 40, length(rho)), logrho = FALSE,
                       rho.min.ratio = 10e-04) {
@@ -49,7 +54,7 @@ cv.edgwas <- function(x, y, scores = TRUE, rho = NULL, nfolds = 10,
 
   edgwas.call <- match.call(expand.dots = TRUE)
   edgwas.call[[1]] <- as.name("edgwas")
-  edgwas.object <- edgwas(x, y, scores, rho, nrho, logrho, rho.min.ratio)
+  edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
   edgwas.object$call <- edgwas.call
 
   if (nfolds < 3)
@@ -64,11 +69,11 @@ cv.edgwas <- function(x, y, scores = TRUE, rho = NULL, nfolds = 10,
   for (i in seq(nfolds)) {
     fold <- foldid == i
 
-    yTrainO <- y[!fold, ]
-    xTrainO <- PS[!fold, ]
+    yTrain <- y[!fold, ]
+    xTrain <- PS[!fold, ]
 
-    outlist[[i]] <- edgwas(x = xTrainO, y = yTrainO, scores = TRUE,
-                           rho = NULL, nrho, logrho, rho.min.ratio)
+    outlist[[i]] <- edgwas(x = xTrain, y = yTrain,
+                           rho = rho)
   }
 
   cvstuff <- cvcompute(outlist, rho = rho, PS = PS, y = y, nfolds = nfolds,
@@ -129,7 +134,7 @@ cvcompute <- function(outlist, rho, PS, y, nfolds, P,
       for (l in seq(ncol(y))) {
 
         # Compute prediction error
-        preds <- predsList[[l]][, j]
+        preds <- predsList[[j]][, l]
         cvraw[[j]][fold, l] <- switch(type.measure,
                                       mse = (preds - yTestIn[, l])^2,
                                       mae = abs(preds - yTestIn[, l]))
@@ -145,7 +150,7 @@ cvcompute <- function(outlist, rho, PS, y, nfolds, P,
   q <- ncol(y)
 
   cvm <- sapply(cvraw, mean, na.rm = TRUE)
-  cvsd <- sqrt(sapply(seq_along(cvmFold), FUN = function(j) sum((cvmFold[[j]] - cvm[j])^2, na.rm = TRUE))/(q*(N-1)))
+  cvsd <- sqrt(sapply(seq_along(cvmFold), FUN = function(j) sum((cvmFold[[j]] - cvm[j])^2, na.rm = TRUE))/(q*N-1))
 
   names(type.measure) <- type.measure
 

@@ -33,7 +33,7 @@
 \item{...}{Other paramters to be passed through to plotting functions.}
 }
 \description{
-Four plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and three types of adjacency matrix plot; static plots for each value of rho used in the fits, interactive plots for the values of rho used in the fits, and a single plot for the optimal value of rho.
+Four plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and three types of adjacency matrix plot; a plot for rho.min, a plot for rho.1se, and interactive plots for all values of rho used in the fits (\pkg{\link{ggplot2}} package required).
 }
 \details{
 Plots are produced, and nothing is returned.

@@ -1,6 +1,6 @@
 #' Plot diagnostics for a cv.edgwas object
 #'
-#' Four plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and three types of adjacency matrix plot; static plots for each value of rho used in the fits, interactive plots for the values of rho used in the fits, and a single plot for the optimal value of rho.
+#' Four plots (selectable by which) are currently available: a plot of the cross-validation curve produced by cv.edgwas i.e., the mean cross-validated error and upper and lower standard deviation curves plotted against the values of rho used in the fits, and three types of adjacency matrix plot; a plot for rho.min, a plot for rho.1se, and interactive plots for all values of rho used in the fits (\pkg{\link{ggplot2}} package required).
 #'
 #' @param x Fitted "cv.edgwas" object.
 #' @param which If a subset of the plots is required, specify a subset of the numbers \code{1:5}.
@@ -109,8 +109,10 @@ plot.cv.edgwas <- function (x, which = c(1L:4L), zoom = 0L,
     }
     if (show[4L]) {
 
+      if (! requireNamespace("ggplot2", quietly = TRUE)) {
+        stop("Please install ggplot2: install.packages('ggplot2')")
       .interactiveHeatmap(x)
-
+      }
     }
     invisible()
   }
@@ -128,24 +130,24 @@ plot.cv.edgwas <- function (x, which = c(1L:4L), zoom = 0L,
   data_heatmap <- do.call(rbind, data_heatmap_1)
 
 
-  gp <- ggplot(data_heatmap, aes(data_heatmap$Var1,
+  gp <- ggplot2::ggplot(data_heatmap, ggplot2::aes(data_heatmap$Var1,
                                  data_heatmap$Var2,
                                  frame = data_heatmap$rho)) +
-    geom_tile(aes(fill = data_heatmap$value)) +
-    scale_fill_gradientn(colors = c("#ffffff", "#16161d")) +
-    scale_y_discrete(limits = rev(unique(data_heatmap$Var2))) +
-    theme(panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.border = element_blank(),
-          panel.background = element_blank(),
-          axis.title.x=element_blank(),
-          axis.title.y=element_blank(),
-          axis.ticks = element_blank()) +
-    geom_vline(xintercept=seq(1.5, 10-0.5, 1),
-               lwd=.5, colour="white") +
-    geom_hline(yintercept=seq(1.5, 10-0.5, 1),
-               lwd=.5, colour="white") +
-    coord_fixed() + theme(legend.position = "none")
+    ggplot2::geom_tile(ggplot2::aes(fill = data_heatmap$value)) +
+    ggplot2::scale_fill_gradientn(colors = c("#ffffff", "#16161d")) +
+    ggplot2::scale_y_discrete(limits = rev(unique(data_heatmap$Var2))) +
+    ggplot2::theme(panel.grid.major = ggplot2::element_blank(),
+          panel.grid.minor = ggplot2::element_blank(),
+          panel.border = ggplot2::element_blank(),
+          panel.background = ggplot2::element_blank(),
+          axis.title.x = ggplot2::element_blank(),
+          axis.title.y = ggplot2::element_blank(),
+          axis.ticks = ggplot2::element_blank()) +
+    ggplot2::geom_vline(xintercept = seq(1.5, 10-0.5, 1),
+               lwd = .5, colour="white") +
+    ggplot2::geom_hline(yintercept = seq(1.5, 10-0.5, 1),
+               lwd = .5, colour = "white") +
+    ggplot2::coord_fixed() + ggplot2::theme(legend.position = "none")
 
   p <- animation_slider(ggplotly(gp),
                         currentvalue = list(prefix = "rho ", font = list(color="black")))

@@ -10,17 +10,23 @@
 #' @return The object returned depends on the ... argument which is passed on to the predict method for edgwas objects.
 #'
 #' @examples
-#' N <- 1000
-#' q <- 10
-#' p <- 100
+#' N <- 1000 #
+#' q <- 10 #
+#' p <- 1000 #
 #' set.seed(1)
-#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' # Sample 1
+#' x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' B <- matrix(0, nrow = p, ncol = q)
-#' B[1, 1:2] <- 5
+#' B[1, 1:2] <- 2.5
+#' y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' beta <- ps.edgwas(x0, y0)$beta
+#' # Sample 2
+#' x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' ps <- x[-(1:100), ] %*% beta
 #' ###
 #' pc <- cv.edgwas(x[-(1:100), ], y[-(1:100), ], scores = FALSE)
-#' ps <- ps.edgwas(x[1:100, ], y[1:100, ])$PS
+#' ps <- x[1:100, ] %*% beta
 #' newy <- predict(pc, newPS = ps, rho = "rho.min")
 #'
 #' @export
@@ -29,8 +35,7 @@
 predict.cv.edgwas <- function(object, newPS, rho = c("rho.min","rho.1se"), ...){
   if(is.numeric(rho))
     rho <- rho
-  else
-    if(is.character(rho)){
+  else if(is.character(rho)){
       rho <- match.arg(rho)
       rho <- object[[rho]]
     }

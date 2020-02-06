@@ -21,8 +21,8 @@
 #' @references glasso, glmnet
 NULL
 
-#' @importFrom stats cor cov lm coef predict as.dist hclust
-#' @importFrom MESS mfastLmCpp
+#' @importFrom stats cor cov lm coef predict as.dist hclust sd
+#' @importFrom MESS mfastLmCpp plr
 #' @importFrom expm sqrtm
 #' @importFrom plotly layout animation_slider ggplotly
 #' @importFrom graphics rect par plot points segments text
@@ -30,8 +30,6 @@ NULL
 NULL
 
 #' @import glasso
-#' @import glmnet
 #' @import Matrix
 #' @import reshape2
-#' @import ggplot2
 NULL

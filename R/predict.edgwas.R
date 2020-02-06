@@ -11,18 +11,29 @@
 #' @return The object returned depends on type.
 #'
 #' @examples
-#' N <- 1000
-#' q <- 10
-#' p <- 100
+#' N <- 1000 #
+#' q <- 10 #
+#' p <- 1000 #
 #' set.seed(1)
-#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' # Sample 1
+#' x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' B <- matrix(0, nrow = p, ncol = q)
-#' B[1, 1:2] <- 5
+#' B[1, 1:2] <- 2.5
+#' y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' beta <- ps.edgwas(x0, y0)$beta
+#' # Sample 2
+#' x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' ps <- x %*% beta
 #' ###
-#' pc <- edgwas(x[-(1:100), ], y[-(1:100), ], scores = FALSE)
-#' ps <- ps.edgwas(x[1:100, ], y[1:100, ])$PS
-#' newy <- predict(pc, newPS = ps)
+#' pc <- cv.edgwas(ps[-(1:100), ], y[-(1:100), ])
+#' newy <- predict(pc, newPS = ps[(1:100), ], rho = max(pc$rho))[[1]]
+#'
+#' mean((newy[,1] - y[1:100, 1])^2)
+#' pss <- ps[-(1:100), 1]
+#' lmfit <- lm(y[-(1:100), 1] ~ pss)
+#' newylm <- predict(lmfit, newdata = data.frame(pss = ps[(1:100), 1]))
+#' mean((newylm - y[1:100, 1])^2)
 #'
 #' @export
 #'
@@ -40,20 +51,20 @@ predict.edgwas <- function(object, newPS, rho = NULL,
   if (is.null(rho)){
     rho <- object$rho
   } else if (is.numeric(rho)) {
-    if (!rho %in% object$rho)
+    if (!all(rho %in% object$rho))
       stop("rho needs to be a value used to create the model")
   } else stop("Invalid form for rho")
 
   nrho <- length(rho)
 
-  which <- match(rho, object$rho, FALSE)
+  whichRho <- match(rho, object$rho, FALSE)
 
   alpha <- object$alpha
   nouts <- nrow(alpha)
 
   ncoef <- lapply(seq(nouts), FUN = function(l) {
-    out <- rbind(alpha[l, which], object$beta[l, which])
-    colnames(out) <- paste0("rho", seq(nrho))
+    out <- rbind(alpha[l, whichRho], object$beta[l, whichRho])
+    colnames(out) <- paste0("rho", whichRho)
     rownames(out) <- c("alpha", "beta")
     out
   })
@@ -64,22 +75,25 @@ predict.edgwas <- function(object, newPS, rho = NULL,
 
   # Rotate PSs
   wList <- lapply(object$P, expm::sqrtm) ## nrho x qxq
-  psList <- lapply(seq(nrho), FUN = function(X) newPS %*% wList[[X]])
 
-  nfit <- vector(mode = "list", length = nouts)
-  nfit <- lapply(nfit, FUN = function(l) matrix(NA, nrow(newPS), nrho))
-  for (l in seq(nouts)) {
-    psUp <- matrix(NA, nrow(newPS), nrho)
-    for(j in seq(nrho)) {
+  nfit0 <- vector(mode = "list", length = nrho)
+  nfit0 <- lapply(nfit0, FUN = function(l) matrix(NA, nrow(newPS), nouts))
+  nfit <- vector(mode = "list", length = nrho)
+  rhoseq <- seq(nrho)
+  for (j in rhoseq) {
+    for (l in seq(nouts)) {
       # Update PSs
-      Sigma12 <- object$Sigma[[j]][l, -l, drop = FALSE] # 1 x (q-1)
-      Sigma21 <- object$Sigma[[j]][-l, l, drop = FALSE] # (q-1) x 1
-      Sigma22I <- solve(object$Sigma[[j]][-l,-l]) # (q-1) x (q-1)#
-      psUp <- drop(Sigma12 %*% tcrossprod(Sigma22I, psList[[j]][, -l])) + psList[[j]][, l]
+      Sigma12 <- object$Sigma[[whichRho[j]]][l, -l, drop = FALSE] # 1 x (q-1)
+      Sigma21 <- object$Sigma[[whichRho[j]]][-l, l, drop = FALSE] # (q-1) x 1
+      Sigma22I <- solve(object$Sigma[[whichRho[j]]][-l,-l]) # (q-1) x (q-1)#
+      psUp <- drop(Sigma12 %*% tcrossprod(Sigma22I, newPS[, -l])) + newPS[, l]
+      #psUp <- drop(Sigma12 %*% tcrossprod(Sigma22I, newPS[, -l])) + newPS[, l]
       # Predict
-      nfit[[l]][, j] <- cbind(1, psUp) %*% ncoef[[l]][, j]
+      nfit0[[j]][, l] <- cbind(1, psUp) %*% ncoef[[l]][, j]
     }
+    nfit[[j]] <- nfit0[[j]] %*% solve(wList[[whichRho[j]]])
   }
 
+  names(nfit) <- paste0("rho", whichRho)
   nfit
 }

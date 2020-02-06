@@ -6,7 +6,6 @@
 #'
 #' @param x Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
-#' @param scores Are PSs provided (default is TRUE) or should PSs be generated from x variable (FALSE).
 #' @param rho (Non-negative) regularisation parameter for lasso passed to glasso. \code{rho=0} means no regularisation. Can be a scalar (usual) or a symmetric nouts by nouts matrix, or a vector of length nouts. In the latter case, the penalty matrix has jkth element sqrt(rho[j]*rho[k]).
 #' @param nrho The number of rho values - default is 40.
 #' @param logrho Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.
@@ -15,21 +14,27 @@
 #' @return An object of class "edgwas" is returned. \item{call}{The call that produced this object.} \item{alpha}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.edgwas}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.}
 #'
 #' @examples
-#' N <- 500 #
+#' N <- 1000 #
 #' q <- 10 #
-#' p <- 20 #
+#' p <- 1000 #
 #' set.seed(1)
-#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' # Sample 1
+#' x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' B <- matrix(0, nrow = p, ncol = q)
-#' B[1, 1:2] <- 10
+#' B[1, 1:2] <- 2.5
+#' y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' beta <- ps.edgwas(x0, y0)$beta
+#' # Sample 2
+#' x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' ps <- x %*% beta
 #' ###
-#' pc <- edgwas(x, y, scores = FALSE)
+#' pc <- edgwas(ps, y)
 #'
 #' @export
 #'
 
-edgwas <- function(x, y, scores = TRUE, rho = NULL,
+edgwas <- function(x, y, rho = NULL,
                    nrho = ifelse(is.null(rho), 40, length(rho)),
                    logrho = FALSE,
                    rho.min.ratio = 10e-04
@@ -51,7 +56,7 @@ edgwas <- function(x, y, scores = TRUE, rho = NULL,
   if (nrowy != nobs)
     stop(paste("number of observations in y (", nrowy, ") not equal to the number of rows of x (",
                nobs, ")", sep = ""))
-  if (isTRUE(scores) && nvars != nouts)
+  if (nvars != nouts)
     stop(paste("number of scores (", nvars, ") not equal to number of outcome components (", nouts, ")", sep = ""))
   vnames <- colnames(x)
   if (is.null(vnames))
@@ -74,20 +79,14 @@ edgwas <- function(x, y, scores = TRUE, rho = NULL,
     rholist <- as.double(rho)
   }
 
-
-  if (isFALSE(scores)) {
-    PS0 <- ps.edgwas(x, y)$PS
-    PS <- scale(PS0, center = TRUE, scale = TRUE)
-  } else {
-    PS = scale(x, center = TRUE, scale = TRUE)
-  }
+  PS <- apply(x, 2, scale)# x
 
 
   ####################
   # STEP 2
   ####################
   # Covariance matrix (qxq) of PSs
-  SigmaPS <- cov(PS)
+  SigmaPS <- cov(PS) # cor(PS) #
 
   # Calculate rho path (first get rho_max):
   if (is.null(rho)) {
@@ -131,16 +130,20 @@ edgwas <- function(x, y, scores = TRUE, rho = NULL,
     AA
   })
 
-  #beta <- vector(mode = "list", length = nrho)
-  #beta <- lapply(beta, FUN = function(l) matrix(NA, 2, nrho))
   alpha <- matrix(NA, nouts, nrho)
   beta <- matrix(NA, nouts, nrho)
+  alphaSD <- matrix(NA, nouts, nrho)
+  betaSD <- matrix(NA, nouts, nrho)
+
+  summarylist <- list(NULL)
+
   for (j in seq(nrho)) {
 
+    summarylist[[j]] <- list(NULL)
     # Rotate Y and PSs (to obtain independent Y)
     w <- expm::sqrtm(P[[j]]) ## qxq
     yIn <- y %*% w
-    xIn <- PS %*% w
+    xIn <- PS #%*% w
 
     for (l in seq(ncol(y))) {
 
@@ -152,8 +155,14 @@ edgwas <- function(x, y, scores = TRUE, rho = NULL,
       xUp <- drop(Sigma12 %*% tcrossprod(Sigma22I, xIn[, -l])) + xIn[, l]
 
       fit <- lm(yIn[,l] ~ xUp)
-      alpha[l, j] <- coef(fit)[1]
-      beta[l, j] <- coef(fit)[2] #matrix(coef(fit), ncol = 1)
+
+      out <- summary(fit)$coefficients
+      alpha[l, j] <- out[1, 1] - mean(x[, l]) * out[2, 1] / sd(x[, l])
+      beta[l, j] <- out[2, 1] / sd(x[, l])
+
+      summarylist[[j]][[l]] <- out
+      summarylist[[j]][[l]][, 1] <- c(alpha[l, j], beta[l, j])
+
     }
 
   }
@@ -161,6 +170,7 @@ edgwas <- function(x, y, scores = TRUE, rho = NULL,
   # Return
   fit <- list(call = this.call,
               alpha = alpha, beta = beta,
+              summary = summarylist,
               A = A, P = P, Sigma = Sigma,
               rho = rho, PS = PS, logrho = logrho)
   class(fit) <- "edgwas"

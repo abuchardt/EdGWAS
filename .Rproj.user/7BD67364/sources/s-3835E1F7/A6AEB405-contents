@@ -14,9 +14,9 @@
 #' q <- 10 #
 #' p <- 20 #
 #' set.seed(1)
-#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' B <- matrix(0, nrow = p, ncol = q)
-#' B[1, 1:2] <- 10
+#' B[1, 1:2] <- 2
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 #' ###
 #' ps <- ps.edgwas(x, y)
@@ -27,16 +27,15 @@
 ps.edgwas <- function(x, y) {
 
   # Compute q simple GWASs
-  gwasResults <- lapply(1:ncol(y), FUN = function(k)
-    MESS::mfastLmCpp(y = y[,k], x = x)$coefficients)
-  # Save all pxq regression coefficients
-  betaHatMat <- do.call(cbind, gwasResults)
+  fit <- MESS::plr(y = y, x = x)
+  betaList <- lapply(fit, FUN = function(X) X[, 1])
+  beta <- do.call(cbind, betaList)
 
   # Compute Nxq PSs
-  PS <- mapply(1:ncol(y), FUN = function(k) x %*% betaHatMat[,k])
+  PS <- x %*% beta
 
   # Return
-  obj <- list(PS = PS)
+  obj <- list(PS = PS, beta = beta)
   class(obj) <- "ps.edgwas"
   obj
 }

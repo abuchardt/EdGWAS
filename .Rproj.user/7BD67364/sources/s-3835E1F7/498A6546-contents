@@ -1,0 +1,25 @@
+
+N <- 1000
+q <- 10
+p <- 100
+set.seed(1)
+x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+#B[1, 1:2] <- 5
+y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+###
+ps <- ps.edgwas(x, y)$PS
+pc <- cv.edgwas(ps[-(1:100), ], y[-(1:100), ])
+newy <- predict(pc, newPS = ps[(1:100), ])
+
+newy[[1]][1]
+
+pss <- ps[-(1:100), 1]
+fitlm <- lm(y[-(1:100), 1] ~ pss)
+pred <- predict(fitlm, newdata = data.frame(pss = ps[(1:100), 1]))
+pred[1]
+
+object <- pc
+newPS <- ps[(1:100), ]
+
+object <- object$edgwas.fit

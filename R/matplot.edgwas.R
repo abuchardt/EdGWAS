@@ -15,7 +15,8 @@
 #'
 
 matplot.edgwas <- function (x, s = c("rho.min", "rho.1se"), A = NULL,
-                            col = "darkgrey", bty = "n", axes = TRUE, frame.plot = FALSE, ...) {
+                            col = "darkgrey", col.border = "#D95F02", bty = "n",
+                            axes = TRUE, frame.plot = FALSE, ...) {
 
   if (is.numeric(s)) rho <- s
   else
@@ -38,7 +39,7 @@ matplot.edgwas <- function (x, s = c("rho.min", "rho.1se"), A = NULL,
         graphics::rect(i-1,q+1-j,i,q-j,
              col = ifelse(Ahat[i,j] == 0, NA, col),
              density = ifelse(Ahat[i,j] == 0, 0, 50),
-             border = ifelse(!is.null(A) && A[i,j] == 1, "#D95F02", NA))
+             border = ifelse(!is.null(A) && A[i,j] == 1, col.border, NA))
       }
     }
     rect(-.5,-.5,q+.5,q+.5,
