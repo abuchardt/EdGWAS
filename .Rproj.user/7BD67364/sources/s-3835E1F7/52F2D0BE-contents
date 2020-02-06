@@ -24,25 +24,31 @@ This is a basic example on simulated data:
 
 ``` r
 library(EdGwas)
-#> Registered S3 methods overwritten by 'ggplot2':
-#>   method         from 
-#>   [.quosures     rlang
-#>   c.quosures     rlang
-#>   print.quosures rlang
-N <- 1000 
-q <- 10
-p <- 100
+N <- 1000 #
+q <- 10 #
+p <- 5000 #
 set.seed(1)
-x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+# Sample 1
+x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 5
-y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+B[1, 1:2] <- 2
+y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ```
 
-Compute polygenic scores
+Compute polygenic scores and coefficients
 
 ``` r
-ps <- ps.edgwas(x, y)$PS
+psobj <- ps.edgwas(x0, y0)
+ps <- psobj$PS
+beta <- psobj$beta
+```
+
+Create new sample
+
+``` r
+x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+ps <- x %*% beta
 ```
 
 Run 10-fold cross-validation for edgwas
@@ -58,14 +64,6 @@ plot(pc, 1)
 ```
 
 ![](README-plot1.png)
-
-Zoom
-
-``` r
-plot(pc, 1, zoom = 10)
-```
-
-![](README-plot1z.png)
 
 Plot estimated optimal adjacency matrix
 

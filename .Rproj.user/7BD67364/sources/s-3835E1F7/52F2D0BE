@@ -5,17 +5,17 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "2605867833",
+    "hash" : "0",
     "id" : "52F2D0BE",
-    "lastKnownWriteTime" : 1576098114,
-    "last_content_update" : 1576098114,
+    "lastKnownWriteTime" : 1580976866,
+    "last_content_update" : 1580976866,
     "path" : "~/wip/R/edgwas/README.md",
     "project_path" : "README.md",
     "properties" : {
         "cursorPosition" : "0,0",
         "scrollLine" : "0"
     },
-    "relative_order" : 12,
+    "relative_order" : 11,
     "source_on_save" : false,
     "source_window" : "",
     "type" : "markdown"
