@@ -39,41 +39,42 @@ q <- 10 #
 p <- 5000 #
 set.seed(1)
 # Sample 1
-x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+X0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 2
-y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+B[1, 1:2] <- 1
+B[3, 3] <- 2
+Y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ```
 
 Compute polygenic scores and coefficients
 ```{r ps}
-psobj <- ps.edgwas(x0, y0)
+psobj <- ps.edgwas(X0, Y0)
 ps <- psobj$PS
 beta <- psobj$beta
 ```
 
 Create new sample
 ```{r sample2}
-x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
-y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
-ps <- x %*% beta
+X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+PS <- X %*% beta
 ```
 
-Run 10-fold cross-validation for edgwas
+Run EdGWAS
 ```{r step1}
-pc <- cv.edgwas(ps, y)
+fit <- edgwas(PS, Y)
 ```
 
-Plot cross-validated error curve
+Plot mean standard error curve
 ```{r p1, eval=FALSE}
-plot(pc, 1)
+plot(fit, 1)
 ```
 
 ```{r p1save, include=FALSE}
 png("/home/ann-sophie/wip/R/edgwas/README-plot1.png",
     width = 300, height = 300)
 par(mar = c(4,4,1,1))
-plot(pc, 1)
+plot(fit, 1)
 dev.off()
 ```
 
@@ -82,14 +83,14 @@ dev.off()
 
 Plot estimated optimal adjacency matrix
 ```{r p2, eval=FALSE}
-plot(pc, 2)
+plot(fit, 2)
 ```
 
 ```{r p2save, include=FALSE}
 png("/home/ann-sophie/wip/R/edgwas/README-plot2.png",
     width = 300, height = 300)
 par(mar = c(4,4,1,1))
-plot(pc, 2)
+plot(fit, 2)
 dev.off()
 ```
 

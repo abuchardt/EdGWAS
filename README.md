@@ -29,16 +29,17 @@ q <- 10 #
 p <- 5000 #
 set.seed(1)
 # Sample 1
-x0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+X0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 B <- matrix(0, nrow = p, ncol = q)
-B[1, 1:2] <- 2
-y0 <- x0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+B[1, 1:2] <- 1
+B[3, 3] <- 2
+Y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ```
 
 Compute polygenic scores and coefficients
 
 ``` r
-psobj <- ps.edgwas(x0, y0)
+psobj <- ps.edgwas(X0, Y0)
 ps <- psobj$PS
 beta <- psobj$beta
 ```
@@ -46,21 +47,21 @@ beta <- psobj$beta
 Create new sample
 
 ``` r
-x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
-y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
-ps <- x %*% beta
+X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+PS <- X %*% beta
 ```
 
-Run 10-fold cross-validation for edgwas
+Run EdGWAS
 
 ``` r
-pc <- cv.edgwas(ps, y)
+fit <- edgwas(PS, Y)
 ```
 
-Plot cross-validated error curve
+Plot mean standard error curve
 
 ``` r
-plot(pc, 1)
+plot(fit, 1)
 ```
 
 ![](README-plot1.png)
@@ -68,7 +69,7 @@ plot(pc, 1)
 Plot estimated optimal adjacency matrix
 
 ``` r
-plot(pc, 2)
+plot(fit, 2)
 ```
 
 ![](README-plot2.png)
