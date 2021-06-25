@@ -1,0 +1,1442 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[danish,UKenglish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\linespread{1.6}
+
+\PassOptionsToPackage{usenames}{color}
+\PassOptionsToPackage{usenames,dvipsnames}{xcolor}
+
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
+
+\graphicspath{{/home/ann-sophie/wip/lasso/interactions/}}
+\input{/home/ann-sophie/wip/latex/preamble}
+\usepackage[nomarkers, notablist, nofiglist]{endfloat}
+\renewcommand\efloatseparator{\mbox{}}
+
+\newcommand*{\Appendixautorefname}{Appendix}
+
+\usepackage{multibib}
+\newcites{online}{Electronic References}
+
+\input{/home/ann-sophie/wip/latex/commands}
+
+\usepackage[many]{tcolorbox}
+\newtcolorbox{cross}{blank,breakable,parbox=false,
+  overlay={\draw[Gray,line width=5pt] (interior.south west)--(interior.north east);
+    \draw[Gray,line width=5pt] (interior.north west)--(interior.south east);}}
+
+\usepackage[color]{changebar}
+\setlength\changebarsep{10pt}
+\setlength\changebarwidth{3pt}
+\cbcolor{myred}
+\newcommand{\Blue}[1]{\textcolor{myblue}{#1}}
+
+\newcommand{\ifdr}{\text{iFDR}}
+
+\newlength{\xdescwd}
+\usepackage{environ}
+\makeatletter
+\NewEnviron{xdesc}{%
+  \setbox0=\vbox{\hbadness=\@M \global\xdescwd=0pt
+    \def\item[##1]{%
+      \settowidth\@tempdima{\textbf{##1}}%
+      \ifdim\@tempdima>\xdescwd \global\xdescwd=\@tempdima\fi}
+  \BODY}
+  \begin{description}[font=\bf,leftmargin=\dimexpr\xdescwd+.5em\relax,
+    labelindent=0pt,labelsep=.5em, topsep=12pt,
+    labelwidth=\xdescwd,align=left]\BODY\end{description}}
+\makeatother
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%               Titel                    %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Identifying Interactions via Hierarchical Lasso Regularisation} %
+\author{Ann-Sophie Buchardt and Claus Thorn Ekstrøm \\ \small Section of Biostatistics, Department of Public Health \\ \small University of Copenhagen}
+\date{}%
+
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Penalised regression models such as lasso are powerful methods, which use sparsity to do feature selection when the number of features measured is larger than the number of observations. This is typical for genomic or multi-omics data, and when analysing such data we are concerned not only with identifying relevant features but also with identifying more complex relationships such as gene-gene interactions. It is, however, not clear exactly how to systematically include interacting features in penalised regression models.
+
+We consider methods for identifying pairwise interactions in a linear regression model under different assumptions of hierarchy.
+
+We approach the problem by using a two-step procedure. In the first step lasso includes only the main effects and selects the most promising. Next, adaptive lasso includes main effects and interactions according to hierarchical restrictions and selects the most promising terms.
+The approach is motivated by modelling pairwise interactions for qualitative variables and experimenting with explicitly applying penalties on the main effects and interactions, thereby obtaining interpretable models. We compare the methods with existing techniques on simulated data using R and illustrate the utility of the methods by examining a data set of a heterogeneous stock of mice and identifying several gene-gene interactions.
+\end{abstract}
+
+{\noindent \textbf{Keywords:} regularised regression; lasso; interactions; hierarchical sparsity}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}\label{sec:intro}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The existence of, e.g., gene-gene or gene-environment interactions has gained attention in genetic studies but the introduction of interactions into a model rapidly increases the complexity of said model, see \citet{tggi} and \citet{geigwa}. If the number of measured features is $p$, the total number of possible pairwise interactions is $\binom{p}{2}=\frac{1}{2}p(p-1)$. Thus, when using 500K single nucleotide polymorphism micro arrays, say, there are approximately \Sexpr{round(choose(500000,2)/1000000000)} billion pairwise interactions. Fitting a regression model to such data is computationally challenging, potentially extremely time consuming, and mathematically distorts the relation between the number of features, $p$, and the number of observations, $N$, as the design matrix no longer has full rank. The objective of this paper is to propose a computationally efficient method for selecting pairwise interactions in a linear model which involves only a subset of the features.
+
+Interpretations of traditional regression analyses do not encourage including an interaction in a model without the corresponding main effects.
+For example, \citet{glinter} argue:
+\begin{quotation}
+`Since main effects [...] can be viewed as deviations from the global mean, and
+interactions are deviations from the main effects, it rarely make sense to have interactions without main effects.'
+\end{quotation}
+When deciding on a model where more than two features are present and give rise to multiple interactions we face the additional challenge of deciding which interactions to consider. According to \citet{cox}:
+\begin{quotation}
+`One general principle that  can be used in such cases is that large component main effects are more likely to lead to appreciable interactions than small components.'
+\end{quotation}
+Likewise, \citet{lhi} argue:
+\begin{quotation}
+`[R]ather than looking at all possible interactions, it may be useful to focus our search on those interactions that have large main effects.'
+\end{quotation}
+This supports the opinion that an interaction should not enter a model without the corresponding main effects and further expresses the view that larger main effects are of more practical importance.
+
+It is, however, possible that the magnitude of the true effect of a feature, is unrelated to both the direction and magnitude of the true associated interaction effects: two treatments, $A$ and $B$, may be ineffective when given alone but helpful or detrimental when given in combination.
+For example, according to \citet{gpat}, in certain cases of serious infections, the addition of gentamicin to penicillin has been shown to be bactericidal, whereas penicillin alone is only bacteriostatic and gentamicin alone has no significant activity.
+
+Our work is motivated by the wish to do cross-omics comparisons and to understand synergy in genetic interactions, that is, when combinations of genes carry more information than the sum of information provided by individual genes.
+While hierarchical assumptions may be fulfilled for some degrees of synergy in gene pairs, they are not fulfilled when each individual gene does not carry any information on the phenotype under study, while a simultaneous consideration of the two genes produces an association with the phenotype.
+
+
+We propose a simple two-step penalised regression procedure for identification of pairwise interactions, such as high-synergy gene pairs, when \emph{strong, weak, or anti-hierarchy} is assumed and suggest the usual lasso for identification of pairwise interactions in situations where hierarchical assumptions do not seem reasonable. We compare the results of feature selection by the hierarchical and non-hierarchical lasso on data sets which exhibit different hierarchical properties.
+
+Our method is inspired by the \emph{hierarchical interaction models} for which the inclusion of interactions depends on the significance of the constituent main effects.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\subsection{Related Work}\label{sec:relw}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Different penalised regression methods have already been formulated for hierarchical interaction models. For example, \citet{lhi} propose a procedure which produces sparse estimates while satisfying either weak or strong hierarchy by adding a set of convex constraints to lasso.
+The method is implemented in the R package \texttt{hierNet}, but the implemented algorithm is not suitable for large scale problems.
+Other methods make use of the \emph{group-lasso} and \emph{overlapped group-lasso} to select interactions and enforce hierarchy, see, e.g., \citet{glinter} and \citet{grouplassologreg}, and then others use stepwise procedures where the ``best'' variable is iteratively added or removed thereby enforcing the strong hierarchy restriction, see, e.g., \citet{hsv} and \citet{park}.
+\citet{screenclean} propose a two-step procedure not too different from the one proposed in this paper, but their method always enforces strong hierarchy and they provide no information on the scalability of the method.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\vspace{\baselineskip}%\subsection{Organisation of the paper}\label{sec:org}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%The rest of the paper is organised as follows.
+In \autoref{sec:method} we introduce the pairwise interaction model, the concept of hierarchical sparsity, and our framework and two-step procedure for finding pairwise interactions.
+We study our method and other techniques on real data, as well as simulated data, in \autoref{sec:sim}. The two-step procedure is implemented using the R package \texttt{glmnet}; the R code is available online, see \citet{website:ilasso}.
+We conclude with a discussion and recommendations in \autoref{sec:dis}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Method}\label{sec:method}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+In this section we present a two-step penalised regression procedure which enables the detection of pairwise interactions.
+
+We introduce the notion of pairwise interactions by considering the simple case of a two-factor design. We assume that we have $N$ observations of the univariate outcome $\by\in\mathbb{R}^N$, e.g., the severity of a disease, and two associated binary features $\bX\in\{0,1\}^{N\times 2}$, e.g., indicating whether either of two single nucleotide polymorphisms (SNPs) are present (indicated by `1') or not (indicated by `0') either singly or in combination.
+Two possible examples of the average severity of disease as a function of the combination of SNPs are shown in \autoref{tab:2x2example}: one suggesting only additive effects the other suggesting interactions. The (lack of) interaction between the effects of the two factors is represented visually by an interaction plot in \autoref{fig:2x2example}.
+
+These are examples of an interaction between two dummy coded categorical features. In general, a set of categorical features is said to interact if the effect of one feature depends on the level(s) of other feature(s) in the set. Similarly, a categorical and a quantitative feature are said to interact, if the partial slope corresponding to the quantitative variable depends on the level of the categorical variable. Estimates and hypothesis tests are calculated similarly for both cases, and interpretations are fairly clear, see \citet{sdals}. In the case of interactions between quantitative features, testing and interpretation is more complex. A comprehensive source on the treatment of such interactions in multiple regression is found in \citet{tii}. The method developed in this paper is applicable to all three cases; for exposition purposes, all our examples regard interactions between categorical features.
+
+%fit a regularisation path for both linear and logistic regression models.
+As in the examples above, we focus in the methods section on linear regression models which are suitable when the outcome is quantitative, and ideally when the error distribution is Gaussian.
+The form of technique in our methodology is easily generalised to other regression models, and we will be illustrating the utility of our method by examining interactions on both quantitative and binary outcome. See \citet{sls} for a discussion on generalisations of simple linear models and the lasso which are suitable for different types of outcome.
+
+<<echo=FALSE, eval=FALSE>>=
+library(RColorBrewer)
+palette(brewer.pal(n = 8, name = "Dark2"))
+# brewer.pal(8, "Dark2")
+
+coul = brewer.pal(8, "Dark2")
+coul = c("#000000", colorRampPalette(coul)(15)[-c(2,4,7)])#[c(8,2,3,4,5,6,7,1,9,10,11,12,13,14,15)]
+palette(coul)
+
+width <- 5.47 #11.69-1.4-1 #8.27-1-1.8
+height <- (5.47+5.47/7)/2.5
+
+pdf("/home/ann-sophie/wip/lasso/interactions/interactionplot.pdf",
+    width=width, height=height, pointsize = 16)
+par(family = "serif", mar=c(4,4,2,2), bg=NA)
+layout(matrix(c(1,2,3), nrow = 1), widths = c(3,3,1))
+N <- 10
+y <- c(rnorm(n = N, mean = 6, sd = 0.1), rnorm(n = N, mean = 4, sd = 0.1),
+       rnorm(n = N, mean = 7, sd = 0.1), rnorm(n = N, mean = 5, sd = 0.1))
+X1 <- as.factor(c(rep(0, N), rep(1, N), rep(0, N), rep(1, N)))
+X2 <- as.factor(c(rep(0, N), rep(0, N), rep(1, N), rep(1, N)))
+interaction.plot(x.factor = X1, trace.factor = X2, response = y,
+                 bty = "n", axes = FALSE,
+                 xlab = expression(X[1]), ylab = "E[y]",
+                 type = "b", pch = c(18,20),
+                 legend = FALSE)
+axis(side = 1, at = 1:2, labels = 0:1)
+axis(side = 2, at = c(4,7), labels = c(4,7))
+
+y <- c(rnorm(n = N, mean = 1, sd = 0.1), rnorm(n = N, mean = 7, sd = 0.1),
+       rnorm(n = N, mean = 4, sd = 0.1), rnorm(n = N, mean = 6, sd = 0.1))
+X1 <- as.factor(c(rep(0, N), rep(1, N), rep(0, N), rep(1, N)))
+X2 <- as.factor(c(rep(0, N), rep(0, N), rep(1, N), rep(1, N)))
+interaction.plot(x.factor = X1, trace.factor = X2, response = y,
+                 bty = "n", axes = FALSE,
+                 xlab = expression(X[1]), ylab = "E[y]",
+                 type = "b", pch = c(18,20),
+                 legend = FALSE)
+axis(side = 1, at = 1:2, labels = 0:1)
+axis(side = 2, at = c(1,4,7), labels = c(1,4,7))
+
+par(mar = c(0,0,0,0))
+plot.new()
+legend("center", legend = 1:0, lty = 1:2, #pch = c(18,20),
+       title = expression(X[2]), bty = "n")
+dev.off()
+@
+%
+\begin{table}[!ht]%[p]
+  \centering
+  \begin{tabular}{ r | c  c }
+    & $\bX_2=0$ & $\bX_2=1$ \\ \hline
+    $\bX_1=0$ & 6 & 7 \\
+    $\bX_1=1$ & 4 & 5
+  \end{tabular}
+\hspace{1cm}
+  \begin{tabular}{ r | c  c }
+    & $\bX_2=0$ & $\bX_2=1$ \\ \hline
+    $\bX_1=0$ & 1 & 4 \\
+    $\bX_1=1$ & 7 & 6
+  \end{tabular}
+   \caption{Two possible examples of the average severity of disease, $E[\by]$, as a function of the combination of SNPs.
+   \emph{Left:} The difference in average severity of disease between those patients with SNP $\bX_1$ as opposed to those without is -2 whether SNP $\bX_2$ is present ($5-7=-2$) or not ($4-6=-2$), and we conclude that there is no interaction between the two SNPs -- their effects are additive.
+   \emph{Right:} The difference in average severity of disease between those patients with SNP $\bX_2$ is $6-7=-1$ if SNP $\bX_1$ is present and $4-1=3$ if it is not. Hence, if we assume that greater numbers are associated with higher severity of the disease under study, it appears that, on average, the presence of SNP  $\bX_2$ has a negative effect if $\bX_1$ is not present, but a positive effect if $\bX_1$ is present. We conclude that there is an interaction between the two SNPs -- their effects are not additive\\
+   The lack of interaction (left) and interaction (right) between the effects of the two factors is represented visually by an interaction plot in \autoref{fig:2x2example}.}
+   \label{tab:2x2example}
+\end{table}
+
+\begin{figure}[!ht]
+  \centering
+  \includegraphics{/home/ann-sophie/wip/lasso/interactions/interactionplot}
+  \caption{Interaction plots visually representing two possible examples of the average severity of disease, $E[\by]$, as a function of the combination of SNPs, see details in \autoref{tab:2x2example}. The parallel lines (left) indicate that no interaction occurs, and the non-parallel lines (right) indicate that an interaction occurs.}
+  \label{fig:2x2example}
+\end{figure}
+
+The \emph{full model} includes an additive effect of the features as well as an interaction between the two and takes the form
+\begin{align*}
+  %y &= \bbeta_0 + \bx_1\bbeta_{1} + \bx_2\bbeta_{2} + \bTheta_{12}\bx_1\bx_2 + \varepsilon,
+  \by_i &= \bbeta_0 + \bX_{i1}\bbeta_{1} + \bX_{i2}\bbeta_{2} + \bX_{i1}\bX_{i2}\bTheta_{12} + \bepsilon_i,
+\end{align*}
+where $\bbeta_0$ is the intercept, $\bbeta_1$ and $\bbeta_2$ are unknown parameters for the main effects, $\bTheta_{12}$ is a parameter for the pairwise interaction, and $\bepsilon$ is a Gaussian error variable. We construct an interaction variable from the product of the original two features; in the case of binary features the interaction variable estimates the difference in means between the two levels.
+The additive linear regression model or \emph{pure main effect model} is one approach for modelling the additive effect of two features on a quantitative outcome and disregard potential interactions. It corresponds to the assumption $\bTheta_{12} = 0$.
+The \emph{pure interaction model} is an approach for describing the situation in which neither of the two features has any effect on the outcome singly but a combination of the two does. It corresponds to the assumption $\bbeta_1 = \bbeta_2 = 0$.
+Finally, the \emph{partial model} includes an additive effect of only one of the features but also the combination of them both corresponds to $\bbeta_1 = 0$ \emph{or} $\bbeta_2 = 0$.
+
+Now, selecting which model to fit to a given data set is not straight forward.
+Often, only the pure main effect model is considered, but without including the interaction term, any main effect found is potentially partly due to marginal effects of an interaction.
+
+The full model is said to honour so-called strong hierarchy and the partial models are said to honour weak hierarchy. We look into these hierarchical restrictions later, but for now we acknowledge the difficult task of deciding on a suitable hierarchy regardless of the data at hand.
+
+An additional challenge involves the parametrisation of the model, since it is possible that different parametrisations result in different hierarchies. As an example, recall the previous case of a two-factor design. Two possible samples of the average severity of disease as a function of the combination of SNPs are shown in \autoref{tab:2x2example2}. The binary features are encoded using a dummy variable representation: they take the values 0 and 1 to indicate the absence and presence of the SNP, respectively, or vice versa.
+The parametrisation in the left table suggests a pure interaction model, whereas the re-parametrisation resulting in the right table suggests a partial model honouring weak hierarchy. When searching over all features and pairs of features simultaneously, it is possible that main effects mask interaction effects and vice versa. Imposing hierarchical restrictions in a stepwise manner, by searching for prominent main effects first, then only considering corresponding interactions, does not necessarily imply that interactions are easily found, since the underlying hierarchical structure is most likely unknown and different from the assumed hierarchical structure. In this paper we propose a two-step procedure, which is useful even when the underlying hierarchical structure is unknown and tackles the issue of masked effects in the case of categorical features.
+
+\begin{table}[!ht]%[p]
+  \centering
+  \begin{tabular}{ r | c  c }
+    & $\bX_2=0$ & $\bX_2=1$ \\ \hline
+    $\bX_1=0$ & 0 & 0 \\
+    $\bX_1=1$ & 0 & $1$
+  \end{tabular}
+\hspace{1cm}
+  \begin{tabular}{ r | c  c }
+    & $\bX_2=0$ & $\bX_2=1$ \\ \hline
+    $\bX_1=1$ & 0 & $1$ \\
+    $\bX_1=0$ & 0 & 0
+  \end{tabular}
+   \caption{Two different parametrisations of a possible sample of the average severity of disease, $E[\by]$, as a function of the combination of the SNPs $\bX_1$ and $\bX_2$.
+   \emph{Left:} The binary features are encoded using a dummy variable representation: they take the value 0 to indicate the absence of the SNP and 1 to indicate the presence of the SNP. If we use '0' as the reference level, the sample suggests a pure interaction model with $\bTheta_{12}=1$, that is, $\by_i=\bX_{i1}\bX_{i2}$.
+   \emph{Right:} Instead let $\bX_1$ take the value 1 to indicate the absence of the SNP and 0 to indicate the presence of the SNP. Now, if we still use '0' as the reference level, the sample suggests a partial model with $\bbeta_2=1$ and $\bTheta_{12}=-1$, that is, $\by_i=\bX_{i1}-\bX_{i1}\bX_{i2}$.
+   }
+   \label{tab:2x2example2}
+\end{table}
+
+Since our interest in interactions goes beyond the two-factor design, we extend the pairwise interaction model to $p$ features in the next section.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Pairwise interaction model}\label{sec:intromodel}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We assume that we have $N$ observations of the univariate outcome $\by\in\mathbb{R}^{N}$ and $p$ associated features $\bX$ with pairwise interactions. If the features are quantitative, $\bX\in\mathbb{R}^{N\times p}$, the pairwise interaction term is formed simply by multiplying the two corresponding features.
+For computational reasons and to reduce multicollinearity we recommend centring quantitative features before the optimisation problem is solved, see \citet{tii}, such that each column has mean zero, that is, $\frac{1}{N}\sum_{i=1}^N \bX_{ij} = 0$. If the features are not measured in the same units, we also recommend scaling the features such that each column has unit variance, that is, $\frac{1}{N}\sum_{i=1}^N \bX_{ij}^2 = 1$. Otherwise the lasso solutions depend on the scale since lasso puts constraints on the size of the coefficients associated to each feature.
+If the features are categorical, they are assumed to be represented by dummy variables, and the pairwise interaction term is formed by multiplying the corresponding variables.
+For the sake of simplicity we assume that the outcome values are centred before the optimisation problem is solved, that is, $\frac{1}{N}\sum_{i=1}^N\by_i=0$, and the intercept term is omitted from the model. In linear regression models, this condition is not a restriction, since given an optimal solution, $(\boldsymbol{\hat{\beta}}_0, \boldsymbol{\hat{\beta}})$, obtained from the centred data, an optimal solution, $(\boldsymbol{\tilde{\beta}}_0,\boldsymbol{\tilde{\beta}})$, for the uncentred data is easily recovered: $\boldsymbol{\tilde{\beta}}=\boldsymbol{\hat{\beta}}$ and $\boldsymbol{\tilde{\beta}}_0=\bar{y}-\sum_{j=1}^p\bar{\bX}_j\boldsymbol{\tilde{\beta}}_j$, where $\bar{y}$ and $\bar{\bX}_j$, $j=1,\ldots,p$, are the original means.
+
+
+Thus, we consider the linear regression model
+\begin{align}
+  \by_i
+  &= \sum_{j=1}^p \bX_{ij}\bbeta_{j} + \sum_{j<k} \bX_{ij}\bX_{ik}\bTheta_{jk} + \bepsilon_i,
+  \label{eq:linreg}
+\end{align}
+where $\bbeta_1,\ldots,\bbeta_p$ are unknown parameters for the main effects, $\bTheta\in\mathbb{R}^{p\times p}$ are unknown parameters for the pairwise interactions, and $\bepsilon$ is a random error variable. We let $\bTheta$ represent a symmetric matrix, i.e., $\bTheta=\bTheta^{\top}$.
+The strict inequality in the interaction summation precludes over-parametrisation arising from the inclusion of the same effect twice, e.g., including both $\bX_{ij}\bX_{ik}$ and $\bX_{ik}\bX_{ij}$.
+
+Based on the model \eqref{eq:linreg} we aim to select a subset of the $p$ main effects and the $\frac{1}{2}p(p-1)$ interactions -- we refer to the variables in this subset as the \emph{relevant} variables.
+In pursuit of this goal we establish the notions of \emph{hierarchy} and \emph{sparsity} in the next sections.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Hierarchy}\label{sec:hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We already introduced the challenges connected to model selection -- in the sense of hierarchical restrictions -- as far as interactions are concerned. In this section we present model restrictions in a form which makes it is possible to specify a penalised regression procedure which produces sparse interaction models that honour these restrictions.
+We define the following hierarchical, anti-hierarchical, and non-hierarchical restrictions:
+\begingroup\abovedisplayskip=3pt \belowdisplayskip=3pt
+\begin{xdesc}
+\item[Strong hierarchy] There are interactions only among pairs of non-zero main effects,
+\\ $\displaystyle{\qquad\qquad \textsc{h}_\textsc{S}: \quad \bTheta_{jk} \neq 0 \quad\Rightarrow\quad \bbeta_j\neq 0\text{ and } \bbeta_k\neq 0.}$
+\item[Weak hierarchy] Each interaction has at least one of its main effects present,
+\\ $\displaystyle{\qquad\qquad \textsc{h}_\textsc{W}: \quad \bTheta_{jk} \neq 0 \quad\Rightarrow\quad \bbeta_j\neq 0\text{ or } \bbeta_k\neq 0.}$
+\item[Anti-hierarchy] The interactions are only among pairs of main effects which are not present,
+\\ $\displaystyle{\qquad\qquad \textsc{h}_\textsc{A}: \quad \bTheta_{jk} \neq 0 \quad\Rightarrow\quad \bbeta_j = 0\text{ and } \bbeta_k = 0.}$
+\item[Pure interactions] There are no main effects present, only interactions,
+\\ $\displaystyle{\qquad\qquad \textsc{h}_\textsc{I}: \quad \bbeta_j = 0 \quad\forall j=1,\ldots,p.}$
+\item[Pure main effects] There are no interactions present, only main effects,
+\\ $\displaystyle{\qquad\qquad \textsc{h}_\textsc{M}: \quad \bTheta_{jk} = 0 \quad\forall j,k=1,\ldots,p.}$
+\item[No hierarchy] There are no restrictions to the presence of main effects and interactions, $\textsc{h}_\textsc{N}$.
+\end{xdesc}
+\endgroup
+
+As an example, recall the simple case of a two-factor design with $N$ observations of the centred outcome $\by\in\mathbb{R}^N$ and two associated binary features $\bX\in\{0,1\}^{N\times 2}$. In this case, the restrictions above result in the following models:
+\begin{align*}
+    \textsc{h}_\textsc{S}: \quad \by_i &= \bX_{i1}\bbeta_{1} + \bX_{i2}\bbeta_{2} + \mathbb{1}_{\{\bbeta_{1}\neq0 \land \bbeta_{2}\neq0\}}\bX_{i1}\bX_{i2}\bTheta_{12} + \bepsilon_i; \\
+    \textsc{h}_\textsc{W}: \quad \by_i &= \bX_{i1}\bbeta_{1} + \bX_{i2}\bbeta_{2} + \mathbb{1}_{\{\bbeta_{1}\neq0 \lor \bbeta_{2}\neq0\}}\bX_{i1}\bX_{i2}\bTheta_{12} + \bepsilon_i; \\
+    \textsc{h}_\textsc{A}: \quad \by_i &= \bX_{i1}\bbeta_{1} + \bX_{i2}\bbeta_{2} + \mathbb{1}_{\{\bbeta_{1}=\bbeta_{2}=0\}}\bX_{i1}\bX_{i2}\bTheta_{12} + \bepsilon_i; \\
+    \textsc{h}_\textsc{I}: \quad \by_i &= \bX_{i1}\bX_{i2}\bTheta_{12} + \bepsilon_i; \\
+    \textsc{h}_\textsc{M}: \quad \by_i &= \bX_{i1}\bbeta_{1} + \bX_{i2}\bbeta_{2} + \bepsilon_i; \\
+    \textsc{h}_\textsc{N}: \quad \by_i &= \bX_{i1}\bbeta_{1} + \bX_{i2}\bbeta_{2} + \bX_{i1}\bX_{i2}\bTheta_{12} + \bepsilon_i.
+\end{align*}
+
+Next, we introduce methods for estimating the parameters in pairwise interaction models, which honour one of the hierarchical, anti-hierarchical, or non-hierarchical restrictions.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Sparsity}\label{sec:sparsity}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The \emph{ordinary least squares} (OLS) method is a popular method for estimating the parameters in a linear model. Typically, this method results in only non-zero estimates, which makes interpretation of the results difficult when $p$ is large. Furthermore, if $N$ is not much larger than $p$, the OLS estimates may exhibit a lot of variability resulting in almost sure over-fitting and are, therefore, likely to yield poor predictions. Finally, if $p>N$ the OLS estimates are not well-defined in which case the method cannot be used at all. However, in the case of $p>N$ it is unlikely that all features are relevant, anyway. This motivates the notion of \emph{sparsity}. When we talk about fitting a \emph{sparse model} we refer to a model which involves only a subset of the features. In order for us to obtain such a subset we can regularise the estimation process.
+
+For the usual linear regression model with no interactions,
+\begin{align*}
+  \by_i
+  &= \sum_{j=1}^p \bX_{ij}\bbeta_{j} + \bepsilon_i,
+\end{align*}
+the \emph{lasso} (least absolute shrinkage and selection operator), introduced by \citet{lasso}, is an $\ell_1$-regularised regression method, which shrinks the regression coefficients by imposing a penalty on their size.
+The objective of lasso is to solve an optimisation problem of the form
+\begin{equation}
+\begin{aligned}
+  & \underset{\bbeta}{\text{minimise}} && \frac{1}{2N}\sum_{i=1}^N\left(\by_i-\sum_{j=1}^p \bX_{ij}\bbeta_j\right)^2 \\
+  & \text{subject to} && \sum_{j=1}^p |\bbeta_j| \leq t,
+\end{aligned} \label{eq:las1}
+\end{equation}
+where $t\geq 0$ is a pre-specified tuning parameter which controls the amount of shrinkage applied to the estimates. We can write the lasso problem in the Lagrangian form
+\begin{align}
+  \underset{\bbeta\in\mathbb{R}^{p}}{\text{minimise}} \left\{\frac{1}{2N}\sum_{i=1}^N\left(\by_i - \sum_{j=1}^p \bX_{ij}\bbeta_j\right)^2 + \lambda \sum_{j=1}^p |\bbeta_j| \right\}, \label{eq:las2}
+\end{align}
+for some penalty parameter $\lambda\geq 0$, and for every value of $\lambda$ there is a $t$ (and for every value of $t$ there is a $\lambda$) such that solving \eqref{eq:las1} and \eqref{eq:las2} results in the same estimates. The penalty parameter $\lambda$ can be determined by a model validation technique such as cross-validation, and selecting the value of $\lambda$ translates to selecting a proper amount of regularisation and is, as such, a trade-off between data fitting and sparsity.
+Hence, the lasso coefficients minimise a penalised residual sum of squares, and, since the absolute value function is not differentiable in zero, lasso has the ability to letting coefficients  equal zero, thus resulting in a model which involves only a subset of the features.
+The lasso $\ell_1$-penalty $\sum_{j=1}^p |\bbeta_j|$ makes the solution non-linear in $\by_i$, and it has no closed form expression.
+
+Now, fitting the usual lasso $\ell_1$-penalty on the joint set of main effects and interactions corresponds to the assumption of no hierarchy, \hn.
+That is, for the pairwise interaction model \eqref{eq:linreg}, the lasso problem takes the form
+\begin{align*}
+ \underset{\bbeta\in\mathbb{R}^{p},\bTheta\in\mathbb{R}^{p\times p}}{\text{minimise}} \left\{q(\bbeta,\bTheta) + \lambda \sum_{j=1}^p |\bbeta_j| + \lambda \sum_{j<k} |\bTheta_{jk}|\right\},  %\lVert\bbeta\rVert_1 + \lambda\lVert\bTheta\rVert_1 \right\}
+\end{align*}
+where %$\bTheta=\bTheta^{\top}$ and %$\lVert\bTheta\rVert_1=\sum_{j<k} |\bTheta_{jk}|$ and
+$q(\bbeta,\bTheta)$ denotes the loss function
+\begin{align*}
+  q(\bbeta,\bTheta)
+  =\frac{1}{2N}\sum_{i=1}^N\left(\by_i-\sum_{j=1}^p \bX_{ij}\bbeta_j - \sum_{j<k}\bX_{ij}\bX_{ik}\bTheta_{jk}\right)^2.
+  %= \frac{1}{2}\left\lVert \by - \bX\bbeta - \bQ\text{vec}_u(\bTheta)\right\rVert^2,
+\end{align*}
+%where $\text{vec}_u(\bTheta)\in\mathbb{R}^{\frac{1}{2}p(p-1) \times 1}$ denotes the vectorisation of the strictly-upper triangular part of the $p\times p$ square matrix $\bTheta$.
+
+In order for us to take into account actual hierarchical structures we can make use of the \emph{group lasso penalty}, which results in \emph{structured sparsity}, see \citet{glinter}, or we can add a set of convex constraints to lasso as suggested by \citet{lhi} who introduce what they call the \emph{all-pairs lasso}:
+%The  optimisation problem can be written as
+%\begin{align*}
+%  & \underset{\bbeta\in\mathbb{R}^{p},\bTheta\in\mathbb{R}^{p\times p}}{\text{minimise}} && q(\bbeta,\bTheta) + \lambda \sum_{j=1}^p |\bbeta_j| + \lambda \sum_{j<k} |\bTheta_{jk}| \\ %\lVert\bbeta\rVert_1 + \lambda\lVert\bTheta\rVert_1 \\
+%  & \text{subject to} && \bTheta=\bTheta^{\top}
+%\end{align*}
+To produce models that are guaranteed to be hierarchical \citet{lhi} build hierarchy into the lasso optimisation problem as a constraint on $\bTheta$, thereby obtaining the \emph{strong hierarchical lasso} defined as
+\begin{align*}
+  & \underset{\bbeta^{\pm}\in\mathbb{R}^{p},\bTheta\in\mathbb{R}^{p\times p}}{\text{minimise}} && q(\bbeta^{+}-\bbeta^{-},\bTheta) + \lambda \mathbf{1}^{\top}(\bbeta^{+}+\bbeta^{-}) + \lambda\sum_{j<k} |\bTheta_{jk}|\\%\lVert\bTheta\rVert_1 \\
+  & \text{subject to} && \bTheta=\bTheta^{\top}, \left.
+          \def\arraystretch{1.8}\begin{array}{l} \sum_{j=1}^p|\bTheta_j|%\lVert\bTheta_j\rVert_1
+                                        \leq \bbeta_j^{+}+\bbeta_j^{-}  \\
+                       \bbeta_j^{+}\geq 0, \quad \bbeta_j^{-}\geq 0
+          \end{array}\right\}
+    \text{ for } j=1,\ldots,p,
+\end{align*}
+where $\bTheta_j$ denotes the $j$th row (and column, by symmetry) of $\bTheta$.
+Dropping the assumption $\bTheta=\bTheta^{\top}$ of symmetry of $\bTheta$ yields the \emph{weak hierarchical lasso}.
+
+The R package \texttt{hierNet} provides implementations of the strong and weak hierarchical lasso, both for Gaussian and logistic losses, see \citet{hiernet}.  Currently, \texttt{hierNet} is, however, %practically limited to fitting models with less than \Blue{1000} main effects and
+only ``reasonably fast for moderate sized problems (100-200 variables)'', as is stated in the R documentation. Thus, when it comes to solving large-scale problems, there is still room for improvement.
+
+In this paper we propose an approximation, by means of a variant of the \emph{adaptive lasso} proposed by \citet{adaptivelasso}, which is computationally tractable and suited for taking into account both strong, weak, and anti-hierarchical structures. For the usual linear regression model with no interactions the adaptive lasso solves an optimisation problem of the form
+\begin{align}
+  \underset{\bbeta\in\mathbb{R}^{p}}{\text{minimise}} \left\{\frac{1}{2N}\sum_{i=1}^N\left(\by_i - \sum_{j=1}^p \bX_{ij}\bbeta_j\right)^2 + \lambda \sum_{j=1}^p \bgamma_j|\bbeta_j| \right\}, \label{eq:adaptivelasso}
+\end{align}
+where the penalty parameter $\lambda\geq 0$ is determined by cross-validation and the quantities $\bgamma_j\geq 0$, $j=1,2,\ldots,p$, is a penalty modifier: when $\bgamma_j=0$, feature $j$ is never penalised; when $\bgamma_j = \infty$ feature $j$ is always excluded; for all $j=1,2,\ldots,p$ for which $\bgamma_j$ are equal to the same constant value, the corresponding features are equally penalised.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Two-step procedure}\label{sec:our}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Solving the strong and weak hierarchical lasso outlined above is, however, very time consuming, and in this paper we propose a simple two-step procedure for selecting relevant features and pairwise interactions according to one of the hierarchical and anti-hierarchical restrictions, \hs, \hw, or \ha, introduced in \autoref{sec:hierarchy}.
+
+
+As the first step in our procedure we include only the main effects and apply the usual lasso for variable selection.
+As the second step in the procedure we include main effects and interactions in accordance with step on and subject to one of the restrictions \hs, \hw, or \ha{}, and we apply a variation of the adaptive lasso with the penalty modifier depending on the given hierarchical or anti-hierarchical restriction.
+
+%As an example, consider the restriction of strong hierarchy: in the first step we include all the main effects; in the second step we include all main effects but only interactions between main effects selected in the first step, and we specify the penalty modifier such that the main effects which are selected by lasso in the first step are never penalised in the second step.
+
+Formally, we define the procedure as follows:
+
+\paragraph{Step 1}
+Define by $\mathcal{M}$ and $\mathcal{I}$ the sets of indexes for all the main effects and interactions, respectively, and assume the pure main effect model,
+\begin{align*}
+  \by_i
+  &= \sum_{j\in\mathcal{M}} \bX_{ij}\bbeta_{j} + \bepsilon_i,
+\end{align*}
+for which the lasso estimates are determined by solving the optimisation problem
+\begin{align*}
+  \underset{\bbeta\in\mathbb{R}^{p}}{\text{minimise}} \left\{\frac{1}{2N}\sum_{i=1}^N\left(\by_i - \sum_{j\in\mathcal{M}} \bX_{ij}\bbeta_j\right)^2 + \lambda_1 \sum_{j\in\mathcal{M}} |\bbeta_j| \right\},
+\end{align*}
+where the penalty parameter $\lambda_1 \geq 0$ is determined by cross-validation.
+Define by $\mathcal{S}=\{k:\bbeta_k\neq 0\}$ the set of relevant main effects, that is, the set of non-zero coefficients, which is estimated by $\mathcal{S}^{(\lambda_1)}=\{k:\bhatbeta_k^{(\lambda_1)}\neq 0\}$, that is, the set of non-zero estimates, corresponding to the main effects selected by lasso.
+
+
+\paragraph{Step 2}
+Define by $\mathcal{M}_{\text{H}}$ and $\mathcal{I}_{\text{H}}$ the sets of main effects and interactions, respectively, to be included in the model subject to one of the hierarchical or anti-hierarchical restrictions, \hs, \hw, or \ha.
+For example, when the model is subject to the restriction of strong hierarchy, $\mathcal{M}_{\text{H}}=\mathcal{S}$ and $\mathcal{I}_{\text{H}}=\{j,k:\bbeta_j\in\mathcal{S}\land\bbeta_k\in\mathcal{S}\}$, which are estimated by $\mathcal{M}_{\text{H}}^{(\lambda_1)}=\mathcal{S}^{(\lambda_1)}$ and $\mathcal{I}_{\text{H}}^{(\lambda_1)}=\{j,k:\bbeta_j\in\mathcal{S}^{(\lambda_1)}\land\bbeta_k\in\mathcal{S}^{(\lambda_1)}\}$, respectively.
+
+Then, assume the pairwise interaction model,
+\begin{align*}
+  \by_i
+  &= \sum_{j\in\mathcal{M}} \bX_{ij}\bbeta_{j} + \sum_{\substack{j<k\\j,k\in\mathcal{I}_{\text{H}}^{(\lambda_1)}}} \bX_{ij}\bX_{ik}\bTheta_{jk} + \bepsilon_i,
+\end{align*}
+for which the adaptive lasso estimates are determined by solving the optimisation problem
+\begin{align*}
+  \underset{\bbeta\in\mathbb{R}^{p}}{\text{minimise}} \left\{\frac{1}{2N}\sum_{i=1}^N\left(\by_i - \sum_{j\in\mathcal{M}} \bX_{ij}\bbeta_j - \sum_{\substack{j<k\\j,k\in\mathcal{I}_{\text{H}}^{(\lambda_1)}}} \bX_{ij}\bX_{ik}\bTheta_{jk}\right)^2 \right. \\
+  \left. + \lambda_2 \sum_{j\in\mathcal{M}} \bgamma_j|\bbeta_j| + \lambda_2 \sum_{\substack{j<k\\j,k\in\mathcal{I}_{\text{H}}^{(\lambda_1)}}} |\bTheta_{jk}| \right\},
+\end{align*}
+where the penalty parameter $\lambda_2\geq 0$ is determined by cross-validation and the penalty modifier $\bgamma_j\geq 0$, $j=1,2,\ldots,p$, is defined as $\bgamma_j=\mathbb{1}_{\{j\notin\mathcal{M}_{\text{H}}^{(\lambda_1)}\}}$ to ensure that the main effects selected in the first step are never (or always) penalised in the second step.
+
+We are finally able to identify the set $\mathcal{S}_{\text{H}}=\{k:\bbeta_k\neq 0\}$ of main effects relevant under the model and estimated by $\mathcal{S}_{\text{H}}^{(\lambda_2)}=\{k:\bhatbeta_k^{(\lambda_2)}\neq 0\}$ and the set $\mathcal{R}_{\text{H}}=\{j,k:\bTheta_{jk}\neq 0\}$ of interactions relevant under the model and estimated by $\mathcal{R}_{\text{H}}^{(\lambda_2)}=\{j,k:\boldsymbol{\hat\Theta}_{jk}^{(\lambda_2)}\neq 0\}$.
+
+
+\paragraph{}
+\cbstart
+Let us explain the reasoning behind the stepwise nature of the method and the modified (and non-) usage of the adaptive lasso.
+Given unlimited data, time, and memory we could include all main effects and pairwise interactions at once and use the adaptive lasso \eqref{eq:adaptivelasso} with weights on the form $\boldsymbol{\gamma}_j = 1/\lVert\hat{\boldsymbol{\beta}}_j\rVert^{\nu}$, where $\hat{\boldsymbol{\beta}}_j$ is the OLS estimate and $\nu > 0$. With this choice of weights, the adaptive lasso enjoys the oracle properties, see \citet{adaptivelasso}, and yields consistent variable selection.
+In practice, however, dimensionality reduction is necessary when interactions are of interest, even for small- and moderate-sized data sets, hence the reason for step one.
+In general, the lasso as used in step one is not consistent for variable selection and often includes too many variables. % when selecting the tuning parameter for prediction but the true model is very likely a subset of these variables.
+Ordinarily, this suggests using the adaptive lasso, but in finite sample settings we ought to be liberal when including main effects to allow more interactions to be considered and avoid them being disregarded because of low power, hence the reason for applying the usual lasso in step one.
+In step two we use a modification of the adaptive lasso \eqref{eq:adaptivelasso} where the weights are defined as an indicator function. This does not retain the attractive oracle properties, but it ensures our goal of interpretation in terms of hierarchy.
+%In a world of unlimited time and memory, step one could be omitted, and we could use the adaptive lasso \eqref{eq:adaptivelasso}, which, with a proper choice of penalty parameters, enjoys the oracle properties, see \citet{adaptivelasso}.
+\cbend
+
+For categorical features the stepwise nature of the procedure has a great advantage.
+As previously mentioned, it is likely that any interactions will be seen as main effects in a marginal analysis, such as the first step of the procedure.
+On the other hand, in a simultaneous analysis of main effects and interactions, such as the second step of the procedure, different parametrisations may lead to different hierarchies as illustrated by the examples of \autoref{tab:2x2example} and \autoref{tab:2x2example2}. Furthermore, correlation or, even, collinearity between an interacting main effect and the corresponding interaction variable may occur. This makes the interpretation of the main effects difficult, but it does not reduce the predictive power of the model in a simultaneous analysis.
+%
+These are, for us, useful properties, since, in a marginal analysis, both main effects of a pairwise interaction are included regardless of the parametrisation and we can use the main effects selected as indicators of potential interactions.
+%
+In a succeeding simultaneous analysis the size of the main effects which were selected in the marginal analysis may change, but it is possible to ensure that they are included -- regardless of the parametrisation.
+%
+It should be noted that these properties imply that the procedure is not suitable when the truth is anti-hierarchy, since, in that case, the main effects corresponding to a relevant interaction are is likely to be selected in the first step, resulting in the interaction not being included in the second step.
+
+%when a model includes terms for the main effects and terms for interactions simultaneously, a significant interaction will often mask the significance of main effects, and by enusring that main effects, which are significant when interactions are disregarded, prevail when both main effects and interactions are considered
+
+In the next section we investigate the efficacy of the procedure through empirical studies and compare the performance of our method to the application of lasso on the pure main effect model, the pure interaction model, and the full model as well as to the application of the strong and weak hierarchical lasso.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results}\label{sec:sim}
+%\section{Empirical Studies}\label{sec:sim}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We illustrate the utility of the two-step procedure described in \autoref{sec:our} on both simulated and real data. The motivation for both sets of examples is to understand the performance of the two-step procedure on one of the important problems in statistical genetics: genotype by genotype interactions (G$\times$G) in genomic selection. First, we use simulations to assess the false discovery rate of the interactions under different hierarchical assumptions on the data generating process and the method. %Specifically, we investigate how much of the performance variation between runs of BAKR is due to posterior estimation via the Gibbs sampler, versus how much is due to the sampling of the approximate kernel function.
+Next, we assess the modelling performance of the two-step procedure in terms of computing time by using three simulation scenarios corresponding to three different hierarchies. Here, the goal is to show that our method is faster than other methods implemented in R.
+Finally, we will assess the selection abilities of our method in a heterogeneous stock mouse data set, see \citet{mice}, from the Wellcome Trust Centre for Human Genetics (WTCCC). %large human data set from the Wellcome Trust Case Control Consortium (WTCCC).
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Simulated data}\label{sec:simsim}
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+We wish to study the advantages and disadvantages of the two-step procedure under the different hierarchical and anti-hierarchical restrictions introduced in \autoref{sec:hierarchy}.
+We compare our method to the usual lasso applied to the joint set of main effects and interactions, which corresponds to the assumption of no hierarchy. We also compare the method to the strong and weak hierarchical lasso implemented in the \texttt{hierNet} package where the penalty parameter is determined by cross-validation with 10 folds using the \texttt{hierNet.cv()} function.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Sampling procedure}
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+Since the efficacy of a procedure depends on the true model generating the data we simulate different set-ups such that each of the different restrictions are tried as the ground truth, and we apply our method to each scenario separately.
+
+The sampling procedure goes as follows: each sample is generated with $N=200$ observations $\by$ and $p=600$ associated 3-way categorical features $\bX\in\{0,1,2\}^{200 \times 600}$ resulting in 179700 potential pairwise interactions.
+%???????????????????????????
+%The main effects $\bX$ are sampled from the standard Gaussian distribution, and we assume that they are independent.
+Where applicable, there are one or two main effects and/or one interaction in the data generating process. 
+\cbstart
+In practice, including two or more independent interactions would be equivalent to doing even more simulations, and including multiple dependent interactions would require higher order interactions, which is beyond the scope of this paper. 
+\cbend
+From the features we generate observations by $\by=\bX\bbeta+\bepsilon$, where $\bepsilon$ is standard Gaussian noise vector. We create a sparse problem by letting $\bbeta_j=0$ for all $j=1,\ldots,p$, except for $\bbeta_1,\bbeta_2,\bbeta_3$, and $\bTheta_{12}$, for which different values are tried.
+
+We fit the models in the two-step procedure using the R package \texttt{glmnet} by \citet{glmnetR}. The penalty parameters $\lambda_1$ and $\lambda_2$ are determined by cross-validation, which we perform using the \texttt{cv.glmnet()} function with 10 folds.
+The function fits a lasso penalised linear model using the \texttt{glmnet()} function, which it runs 10+1 times; the first to get a sequence of values for the penalty parameter, and then the remainder to compute the fit with each of the folds omitted.
+The cross-validated error is accumulated, and the mean cross-validated error (\textsc{cvm}) and standard deviation over the folds are computed.
+Since the folds in \texttt{cv.glmnet()} are selected at random the results of the procedure are random, and we reduce this randomness by running \texttt{cv.glmnet()} $R=10$ times and average the error curves. That is, from each iteration, we obtain a sequence of values for the penalty parameter and a corresponding sequence of values for the \textsc{cvm}.
+From the cross-validation fit we choose the set of non-zero coefficients (corresponding to the discoveries) at the value of the penalty parameter corresponding to the minimum point-wise average of the \textsc{cvm}.
+Finally, to reduce the residual variation we repeat the sampling of the outcome as well as the fitting using the two-step procedure $B=100$ times.
+Thus, in total the four methods (the two-step procedure assuming either strong, weak, or anti-hierarchy and the usual lasso) are evaluated on about 33000 simulations each.
+
+
+<<echo=FALSE, eval=FALSE>>=
+gem <- "pdf" #"tiff" #"" #
+width <- 6.27 #11.69-1.4-1 #8.27-1-1.8 #8.27-1-1
+height <- width+width/7
+
+scree <- "No"
+hier <- c("Strong", "Weak", "Anti", "No")
+N <- 100
+
+#########
+# Truth #
+#########
+tru <- c("Strong", "Weak", "Anti", "PI") #"Anti"#
+for(r in 1:length(tru)){
+  #if(tru[r] != "PI") {
+    path <- paste0("/home/ann-sophie/wip/lasso/interactions/", tru[r])
+  #} else {
+  #  path <- paste0("/run/user/551438008/gvfs/smb-share:domain=SUND,server=sund.root.ku.dk,share=users,user=zpt949/LINUX/ifsv/zpt949/Documents/wip/lasso/interactions/", tru[r])
+  #}
+  source(file=paste0(path, "/step0.R"))
+  colo="white"; cbPalette[1] <- colo; if(colo == "white") cbPaletteT[1] <- rgb(0,0,0,.2)
+
+  if(tru[r] == "PI"){
+    bet1 <- 0
+    bet2 <- NULL
+    bet12 <- seq(0.2,2.2,by=0.2)
+    strat <- "bet1"
+    xaxis <- "bet12"
+    S <- 1
+  } else {
+    bet1 <- seq(0.1,1.1,by=0.1)
+    bet2 <- NULL
+    bet12 <- seq(0.2,2.2,by=0.4)
+    strat <- "bet12"
+    xaxis <- "bet1"
+  S <- length(eval(parse(text=strat)))
+  }
+  xlabs <- ifelse(tru[r]=="Strong", expression(paste(beta[1], " = ", beta[2])),
+                  ifelse(tru[r]=="Weak", expression(beta[1]),
+                         ifelse(tru[r]=="Anti", expression(beta[3]),
+                                ifelse(tru[r]=="PI", expression(paste(Theta[12])),
+                                ""))))
+
+  if(gem == "pdf"){
+    pdf(paste0("/home/ann-sophie/wip/lasso/interactions/PLOT",
+             colo,strat,xaxis,tru[r],N,p,n,".pdf"),
+      width=width, height=height, pointsize = 12)
+  } else if (gem == "tiff") {
+    tiff(paste0("/home/ann-sophie/wip/submissions/statisticsinmedicine/plot",
+              colo,strat,xaxis,tru[r],N,p,n,".tiff"),
+       width=width*800, height=height*800,
+       pointsize = 12, family = "serif",
+       units="px", res=800)
+  }
+
+  par(family = "serif", ps=12, oma=c(1,1,0,0), bg=NA)
+  layout(matrix(c(1,2,3,4,5,5), 3, 2, byrow = TRUE), heights=c(3,3,1))
+  par(mar=c(mar=c(4,4,3,1)))
+
+  for(h in 1:length(hier)){
+    if(hier[h]=="No") scree <- "GSR";
+
+    plot(1, type="n", xlim=range(eval(parse(text=xaxis))), ylim=c(0,1),
+         xlab="", ylab="", bty="n", axes=FALSE, col.lab=colo)
+    if(h %in% c(1,3)) mtext("iFDR", side=2, outer=FALSE, line=3, font=1, col=colo)
+    if(h %in% c(3,4)) mtext(xlabs, side=1, outer=FALSE, line=3, font=1, col=colo)
+    axis(1, col=colo, col.axis=colo, cex.axis=1.4)
+    axis(2, at=seq(0,1,0.2), col=colo, col.axis=colo, cex.axis=1.4)
+
+
+    for(EX in 1:S){
+      nc <- length(eval(parse(text=xaxis)))
+      ifdr <- matrix(nrow=N, ncol=nc)
+      Si <- matrix(nrow=N, ncol=nc)
+      Vi <- matrix(nrow=N, ncol=nc)
+      for(i in 1:N){
+        name2 <- paste0("catStep2",strat,xaxis,tru[r],hier[h],W,N,p,n)
+        filename <- paste(path, "/output/",name2,"-",i,".rda",sep="")
+        if(file.exists(file = filename)){
+          load(file=filename)
+          ifdr[i,] <- STEP2$IFDR[[EX]]$ifdr
+          #Si[i,] <- ifelse(is.null(STEP2$IFDR[[EX]]$Si), rep(NA, nc), STEP2$IFDR[[EX]]$Si)
+          if(is.null(STEP2$IFDR[[EX]]$Si)){
+            Si[i,] <- rep(NA, nc)
+          } else {
+            Si[i,] <- STEP2$IFDR[[EX]]$Si
+          }
+          if(is.null(STEP2$IFDR[[EX]]$Si)) cat(i, " -- ")
+        } else {
+          cat("T:", tru[r], "H:", hier[h], "i:", i, "--")
+        }
+      }
+      ifdr5 <- Vi/(Vi+Si)
+      IFDR <- apply(ifdr, 2, mean, na.rm=TRUE)
+      SEM <- apply(Si, 2, function(x) sd(x, na.rm=TRUE)/sqrt(n))
+      IP <- apply(Si, 2, mean, na.rm=TRUE)
+      IV <- apply(Vi, 2, mean, na.rm=TRUE)
+      ciu <- IFDR + 2*SEM
+      cil <- IFDR - 2*SEM
+      idx <- 1:nc#which(!is.na(STEP2$IFDR[[EX]]$ifdr))
+      polygon(c(eval(parse(text=xaxis))[idx],
+                rev(eval(parse(text=xaxis))[idx])),
+              c(ciu[idx],rev(cil[idx])),
+              col=cbPaletteT[EX], border=NA)
+      lines(eval(parse(text=xaxis)), IFDR, lty=1, col=cbPalette[EX])
+      lines(eval(parse(text=xaxis)), IP, lty=3, lwd=2, col=cbPalette[EX])
+      lines(eval(parse(text=xaxis)), IV, lty=4, lwd=2, col=cbPalette[EX])
+      cat(IP, ".")
+    }
+    if(hier[h] != "Anti"){
+      mtext(paste0(hier[h], " hierarchy"),
+            side=3, font=1, outer=FALSE, col=colo, line=1)
+    } else {
+      mtext(paste0(hier[h], "-hierarchy"),
+            side=3, font=1, outer=FALSE, col=colo, line=1)
+    }
+
+  }
+  par(mar=c(0,0,0,0))
+  plot.new()
+  if(tru[r] != "PI"){
+    legend("center", legend=eval(parse(text=strat)), text.col=colo,
+           ncol=length(eval(parse(text=strat))), bty="n", lty=4, lwd=2,
+           col=cbPalette, title="", cex=1.4)#expression(paste(beta[1:2])))
+    legend("center", legend=c("",""), ncol=2, bty="n", title=expression(paste(Theta[12])), cex=1.8,
+           text.col = colo)
+  }
+  if(gem %in% c("pdf", "tiff")) dev.off();
+}
+@
+
+<<eval=FALSE, echo=FALSE>>=
+setwd("/home/ann-sophie/wip/lasso/interactions/finalsimulations/")
+
+colo="black"
+red <- green <- blue <- 152
+r <- c(0,red,42,153,156,255)
+g <- c(0,green,103,150,85,95)
+b <- c(0,blue,236,50,141,24)
+
+cbPalette <- rgb(r,g,b, max = 255)
+cbPaletteT <- rgb(r,g,b, alpha=51, maxColorValue=255)
+
+width <- 5.47 #11.69-1.4-1 #8.27-1-1.8
+height <- 5.47+5.47/7
+
+p <- 600
+n <- 200
+W <- 10
+B <- 100
+scree <- "No"
+hier <- c("Strong", "Weak", "Anti", "No")
+#########
+# Truth #
+#########
+truth <- c("Strong")#, "Weak")#, "Anti", "PI")
+for(r in 1:length(truth)){
+
+  if(truth[r]=="PI"){
+    bet1 <- NULL
+    bet2 <- NULL
+    bet12 <- seq(0.2,2.2,by=0.4)
+    strat <- "none"
+    xaxis <- "bet12"
+    S <- 1
+  } else {
+    bet1 <- seq(0.1,1.1,by=0.1)
+    bet2 <- NULL
+    bet12 <- seq(0.2,2.2,by=0.4)
+    strat <- "bet12"
+    xaxis <- "bet1"
+    S <- ifelse(truth[r] == "PI", 1, length(eval(parse(text=strat))))
+  }
+xlabs <- ifelse(truth[r]=="Strong", expression(paste(beta[1], " = ", beta[2])),
+                ifelse(truth[r]=="Weak", expression(beta[1]),
+                       ifelse(truth[r]=="Anti", expression(beta[3]),
+                              ifelse(truth[r]=="PI", expression(paste(beta[1:2])),
+                              ""))))
+
+pdf(paste0("/home/ann-sophie/wip/lasso/interactions/catplot",
+           colo,strat,xaxis,truth[r],B,p,n,".pdf"),
+    width=width, height=height, pointsize = 12)
+#tiff(paste0("/home/ann-sophie/wip/submissions/statisticsinmedicine/plot",
+#            colo,strat,xaxis,truth[r],B,p,n,".tiff"),
+#     width=width*800, height=height*800,
+#     pointsize = 12, family = "serif",
+#     units="px", res=800)
+par(family = "serif", ps=12, oma=c(1,1,0,0), bg=NA)
+if(truth[r] != "PI"){
+  layout(matrix(c(1,2,3,4,5,5), 3, 2, byrow = TRUE), heights=c(3,3,1))
+} else {
+  layout(matrix(c(1,2,3,4), 2, 2, byrow = TRUE))
+}
+par(mar=c(mar=c(4,4,3,1)))
+for(h in 1:length(hier)){
+  if(hier[h]=="No") scree <- "GSR";
+
+  if(truth[r] == "Strong" | (truth[r] == "Weak" & hier[h] %in% c("Strong", "Weak"))){
+    #load("/home/ann-sophie/wip/lasso/interactions/catStep2bet12bet1WeakStrong10100600200.RData")
+    load(file=paste0("catStep2", strat,xaxis,truth[r],hier[h],W,B,p,n,".RData"))
+  } else {
+    load(file=paste0("step2", strat,xaxis,truth[r],hier[h],W,B,p,n,".RData"))
+  }
+
+  plot(1, type="n", xlim=range(eval(parse(text=xaxis))), ylim=c(0,1),
+       xlab="", ylab="", bty="n", axes=FALSE, col.lab=colo)
+  if(h %in% c(1,3)) mtext("iFDR", side=2, outer=FALSE, line=3, font=1, col=colo)
+  if(h %in% c(3,4)) mtext(xlabs, side=1, outer=FALSE, line=3, font=1, col=colo)
+  axis(1,col=colo, col.axis=colo)
+  axis(2,col=colo, col.axis=colo)
+  for(EX in 1:S){
+    ciu <- STEP2$IFDR[[EX]]$ifdr + 2*STEP2$IFDR[[EX]]$isem
+    cil <- STEP2$IFDR[[EX]]$ifdr - 2*STEP2$IFDR[[EX]]$isem
+    idx <- which(!is.na(STEP2$IFDR[[EX]]$ifdr))
+    polygon(c(eval(parse(text=xaxis))[idx],
+              rev(eval(parse(text=xaxis))[idx])),
+            c(ciu[idx],rev(cil[idx])),
+            col=cbPaletteT[EX], border=NA)
+    lines(eval(parse(text=xaxis)), STEP2$IFDR[[EX]]$ifdr, lty=1, col=cbPalette[EX])
+    lines(eval(parse(text=xaxis)), STEP2$IFDR[[EX]]$ip, lty=3, lwd=2, col=cbPalette[EX])
+    cat(".")
+  }
+  mtext(paste0(hier[h], " hierarchy"), # (", round(STEP2$ETIM), "min., B = ", B,")"),
+        side=3, font=1, outer=FALSE, col=colo, line=1)
+  #if(truth[r] %in% c("Strong","Weak","Anti") & hier[h] %in% c("Strong","Weak")){
+  #  load(file=paste0("/home/ann-sophie/wip/lasso/interactions/hiernet",
+  #                   truth=truth[r],hierarchy=hier[h],p=100,n=50,".RData"))
+  #  points(1,fdr,pch=16,col=cbPalette[S],cex=1.4)
+  #}
+}
+par(mar=c(0,0,0,0))
+plot.new()
+if(truth[r] != "PI"){
+  legend("center", legend=eval(parse(text=strat)), text.col=colo, ncol=length(eval(parse(text=strat))),
+       bty="n", lty=4, lwd=2, col=cbPalette, title="")#expression(paste(beta[1:2])))
+  legend("center", legend=c("",""), ncol=2, bty="n", title=expression(paste(Theta[12])), cex=1.4)
+}
+dev.off();
+}
+@
+
+
+In order for us to compare the performance of the methods we use the false-discovery rate of the interactions (\ifdr), defined as
+\begin{align*}
+  \ifdr=\frac{V^{(i)}}{V^{(i)}+S^{(i)}},
+\end{align*}
+where $V^{(i)}$ is the number of false discoveries of interactions and $S^{(i)}$ is the number of true discoveries of interactions.
+Please note that the false-discovery rates are defined in a manner that returns a zero if the number of false discoveries is zero. If there are no false discoveries nor true discoveries, the false-discovery rates are not provided.
+
+Under the assumption of no hierarchy, $B=100$ repetitions of the simulations and the model fitting (the $R=10$ times repeated application of the usual lasso with 10-fold cross-validation to the joint set of main effects and interactions) is a very lengthy operation. Thus, we are interested in eliminating features from the problem to reduce the computational load, and, to this end, we apply a \emph{screening rule}, which, according to \citet{sls}, has the potential to speed up the computation considerably while still providing the exact numerical solution. In particular, we apply the \emph{global strong rule}, which discards feature $j$ whenever
+\begin{align*}
+  \left|\bX_j^{\top}\by\right|<2\lambda-\lambda_{\max},
+\end{align*}
+where $\lambda_{\max}=\max_j|\langle\bX_j,\by\rangle|$, that is the variable which has the largest absolute inner-product. Finally, we apply the usual lasso on the features left after screening using the \texttt{glmnet} package. The penalty parameter is determined by 10-fold cross-validation, which we perform using the \texttt{cv.glmnet()} function.
+
+We present the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals which we compute as the mean \ifdr{} plus/minus twice the standard error of the mean. We also present the average number of true interaction discoveries (dotted lines) conditioned on having discovered a true interaction. Please note that the average number of false interaction discoveries, which complete the the picture is not displayed.
+Since the simulated data honour strong, weak, \mbox{anti-,} or no hierarchy with one interaction effect, the desired number of true interaction discoveries is one. That is, the dotted lines should to be close to one. Since we aim to control the expected proportion of interaction discoveries which are false, the desired value for the mean \ifdr{} is zero. That is, the solid lines should to be close to zero.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Strong Hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours strong hierarchy.
+Thus, we consider simulations for different effect sizes of the features $\bX_1$ and $\bX_2$ and the interaction between the two, that is for different given non-zero values of $\bbeta_1$, $\bbeta_2$, and $\bTheta_{12}$.
+We compare the results to results obtained by applying the usual lasso on the joint set of main effects and interactions, that is by assuming no hierarchy.
+
+
+In \autoref{fig:plotsB12S} we show the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. The lines are coloured according to the true value of $\bTheta_{12}$.
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet12bet1Strong100600200}%{catplotblackbet12bet1Strong100600200}
+\caption{The data generating process honours strong hierarchy. Mean \emph{\ifdr{}} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. Lines are coloured according to the true value, $\bTheta_{12}$, of the interaction. Dotted lines should to be close to one; solid lines close to zero.}
+\label{fig:plotsB12S}
+\end{figure}
+%
+We observe that under the strong hierarchical model, \hs, the mean \ifdr{} is close to zero for all values of the two true main effects and all values of the true interaction. This indicates that when we do discover an interaction it is likely to be the correct one. We also observe that the average number of true interaction discoveries is almost constant in the true main effects and increases as the size of the true interactions increases. It appears that whenever the value of the true interaction is greater than or equal to 1, it is discovered more than 80 \% of the times.
+%
+Under the weak hierarchical model, \hw, both the mean \ifdr{} and the average number of true interaction discoveries are almost constant in the true main effects and increase as the size of the true interactions increases. It appears that the mean \ifdr{} is over 70 \% regardless of the value of the two true main effects and the true interaction. This suggests that more false interactions are discovered when the hierarchical restriction is relaxed. The relaxation does, however, not affect the average number of true interaction discoveries much.
+%
+Under the anti-hierarchical model, \ha, the mean \ifdr{} is approximately 100 \% regardless of the value of the two true main effects and the true interaction.
+The average number of true interaction discoveries is almost constant in the true main effects and increases as the size of the true interaction increases, but it does not exceed 85 \%. Thus, many interactions are discovered, as was expected under \ha{}, but the correct interaction is very rarely included.
+%
+Under the assumption of no hierarchy, \hn, the mean \ifdr{} is greater than 80 \% regardless of the value of the two true main effects and the true interaction.
+However, the number of true discoveries is one whenever the true size of the interaction is greater than 0.2 or the values of the two true main effects is greater than 0.4, and we conclude that, when disregarding the hierarchical structure, the one true interaction is likely to be among the many false discoveries.
+The values of the mean \ifdr{} are very close when the size of the true interaction is greater than 0.2. Therefore, only the solid line representing the mean \ifdr{} for $\bTheta_{12}=2.2$ is visible.
+The values of the average number of true interaction discoveries are very close when the size of the true interaction is greater than 0.2. Therefore, only the orange dotted line representing the average number of true interaction discoveries for $\bTheta_{12}=2.2$ is visible.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Weak Hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours weak hierarchy.
+Thus, we consider simulations for different effects of the feature $\bX_1$ and the interaction between the $\bX_1$ and $\bX_2$, that is for different given non-zero values of $\bbeta_1$ and $\bTheta_{12}$.
+We compare the results to results obtained by assuming no hierarchy.
+
+In \autoref{fig:plotsB12W} we show the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. The lines are coloured according to the true value of $\bTheta_{12}$.
+%
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet12bet1Weak100600200}%{catplotblackbet12bet1Weak100600200}
+\caption{The data generating process honours weak hierarchy. Mean \ifdr{} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. Lines are coloured according to the true value, $\bTheta_{12}$, of the interaction. Dotted lines should to be close to one; solid lines close to zero.}
+\label{fig:plotsB12W}
+\end{figure}
+
+We observe that the results are very similar to those obtained when the data generating process honours strong hierarchy: under \hs{} the mean \ifdr{} is approximately zero for all values of the two true main effects and all values of the true interaction and whenever the value of the true interaction is greater than 1, it is discovered more than 75 \% of the times.
+%
+More false interactions are discovered when the hierarchical restriction is relaxed and \hw{} is assumed, and the average number of true interaction discoveries is decreased a bit in the value of the true interaction.
+%
+Under \ha{} and \hn{} the results are almost identical to those obtained when the data generating process honours strong hierarchy.
+
+
+We see that whether the data generating process honours strong or weak hierarchy with one interaction, the procedure performs very similarly under \hs{} and \hw{}. Essentially, the only difference is, that under \hs{} the process is likely to discover one more false interaction when the data generating process honours weak hierarchy instead of strong hierarchy.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Other hierarchical restrictions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+In \autoref{app:appendix} we discuss the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours anti-hierarchy or the pure interaction set-up. We refrain from the pure main effect set-up
+as it results in a constant iFDR equal to one and zero discoveries of true interactions.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Comparison of methods}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+<<echo=FALSE, eval=FALSE>>=
+setwd("/home/ann-sophie/wip/lasso/interactions/")
+library(Matrix)
+library(xtable)
+
+p <- 200; n <- 100;
+hier <- c("Strong", "Weak")
+tru <- c("Strong", "Weak", "Anti")
+tabH <- matrix(ncol=2, nrow=3)
+tab2S <- matrix(ncol=2, nrow=3)
+ifdrH <- ifdr2S <- matrix(ncol=2, nrow=3)
+NZH <- matrix(ncol=2, nrow=3)
+DH <- D2S <- NZ2S <- FD2S <- FDH <- TD2S <- TDH <- AB <- matrix(ncol=2, nrow=3)
+nzH <- nz2S <- v <- list()
+for(i in 1:3){
+  nzH[[i]] <- nz2S[[i]] <- v[[i]] <- list()
+  for(j in 1:2){
+    load(file=paste0("catHiernet",truth=tru[i],hierarchy=hier[j],p,n,".RData"))
+    tabH[i,j] <- as.numeric(tim)*60
+    ifdrH[i,j] <- fdr
+    nzH[[i]][[j]] <- NZ
+    NZH[i,j] <- length(NZ)
+    FDH[i,j] <- sum(NZ != "1:2")
+    TDH[i,j] <- sum(NZ == "1:2")
+    #DH[i,j] <- ifelse(i==j, paste0("\\textbf{", TDH[i,j], " (", FDH[i,j], ")}"),
+    #                  paste0(TDH[i,j], " (", FDH[i,j], ")"))
+    DH[i,j] <- paste0(TDH[i,j], "/", NZH[i,j])
+    load(file=paste0("catSIM",truth=tru[i],hierarchy=hier[j],p,n,".RData"))
+    tab2S[i,j] <- as.numeric(STEPS$ETIM)*60
+    ifdr2S[i,j] <- STEPS$ifdr
+    nz2S[[i]][[j]] <- STEPS$nZi
+    NZ2S[i,j] <- length(STEPS$nZi)
+    FD2S[i,j] <- sum(STEPS$nZi != "X[, 1]:X[, 2]")
+    TD2S[i,j] <- sum(STEPS$nZi == "X[, 1]:X[, 2]")
+    #D2S[i,j] <- ifelse(i==j, paste0("\\textbf{", TD2S[i,j], " (", FD2S[i,j], ")}"),
+    #                   paste0(TD2S[i,j], " (", FD2S[i,j], ")"))
+    D2S[i,j] <- paste0(TD2S[i,j], "/", NZ2S[i,j])
+    AB[i,j] <- sum(NZ %in% gsub("\\]", "", gsub("X\\[, ", "", STEPS$nZi)))
+    #v[[i]][[j]] <- venneuler(c(A=NZ2S[i,j], B=NZH[i,j], "A&B"=AB[i,j]))
+  }
+}
+
+colnames(tabH) <- colnames(tab2S) <- hier
+rownames(tabH) <- rownames(tab2S) <- c("\\parbox[t]{3mm}{\\multirow{3}{*}{\\rotatebox[origin=c]{90}{Truth}}}", "", " ")
+tab <- cbind(tabH, tab2S)
+TAB <- cbind(tru, format(round(tab[, order(colnames(tab))], 2), nsmall=2))
+addtorow <- list()
+addtorow$pos <- list(0, 0)
+addtorow$command <- c("&& \\multicolumn{2}{c}{Strong} & \\multicolumn{2}{c}{Weak}\\\\\n",
+                      "&& \\texttt{hierNet} & \\texttt{glmnet} & \\texttt{hierNet} & \\texttt{glmnet} \\\\\n")
+print(xtable(TAB, align = c("r","r","r","r","r","r"), digits=2,
+             caption="Computing time (in seconds) for the \\emph{\\texttt{hierNet}} technique and two-step procedure using the \\emph{\\texttt{cv.glmnet()}} function when the data generating process honours strong, weak, or anti-hierarchy (rows) and the model assumes strong or weak hierarchy (columns). \\label{tab:comptime}"),
+      booktabs=TRUE, add.to.row = addtorow, include.colnames = FALSE,
+      sanitize.rownames.function = identity, #include.rownames=FALSE,
+      file="comptime.tex")
+
+colnames(DH) <- colnames(D2S) <- hier
+rownames(DH) <- rownames(D2S) <- c("\\parbox[t]{3mm}{\\multirow{3}{*}{\\rotatebox[origin=c]{90}{Truth}}}", "", " ")
+tab <- cbind(DH, D2S)
+TAB <- cbind(tru, tab[, order(colnames(tab))])
+addtorow <- list()
+addtorow$pos <- list(0, 0)
+addtorow$command <- c("&& \\multicolumn{2}{c}{Strong} & \\multicolumn{2}{c}{Weak}\\\\\n",
+                      "&& \\texttt{hierNet} & \\texttt{glmnet} & \\texttt{hierNet} & \\texttt{glmnet} \\\\\n")
+print(xtable(TAB, align = c("r","r","r","r","r","r"),
+             caption="Number of true/total discoveries of interactions for the \\emph{\\texttt{hierNet}} technique and two-step procedure using the \\emph{\\texttt{cv.glmnet()}} function when the data generating process honours strong, weak, or anti-hierarchy (rows) and the model assumes strong or weak hierarchy (columns). \\label{tab:disco}"),
+      booktabs=TRUE, add.to.row = addtorow, sanitize.text.function = identity,
+      include.colnames = FALSE,
+      sanitize.rownames.function = identity, #include.rownames=FALSE,
+      file="disco.tex")
+@
+
+In this section we compare the performance -- in terms of computing time and discoveries -- of the two-step procedure and the \texttt{hierNet} package.
+Due to the long computation time of \texttt{hierNet} we cannot do as thorough an investigation of the technique as we did of the two-step procedure in the previous sections. For example, fitting a sparse interaction model subject to the strong hierarchy restriction using cross-validation to estimate the regularisation parameter to a data set with $N=200$ observations and $p=600$ continuous features takes more than nine hours on an Intel Core i5-5200U processor.
+
+Thus, we simulate three data sets, as described in \autoref{sec:simsim}, honouring strong, weak, and anti-hierarchy respectively, only each sample is generated with $N=100$ observations and $p=200$ categorical features, and we consider only the case of $\bbeta_1=1$, $\bbeta_2=1$ (strong hierarchy), and $\bTheta_{12}=1$.
+For each data set we run strong and weak hierarchical lasso using the \texttt{hierNet.path()} and \texttt{hierNet.cv()} functions. We also run the two-step procedure using the \texttt{cv.glmnet()} function.
+
+The resulting discoveries of interactions are summarised in \autoref{tab:disco}. We observe that regardless of the true underlying hierarchy and the assumed hierarchy both techniques discover the true interaction, except when the truth is anti-hierarchy and the model assumes strong hierarchy, in which case the two-step procedure discovers no interactions at all. Furthermore, we observe that \texttt{hierNet} always discovers substantially more false interactions than the two-step procedure.
+\input{/home/ann-sophie/wip/lasso/interactions/disco.tex}
+
+The resulting computation times in seconds are summarised in \autoref{tab:comptime}. We observe that the two-step procedure appears to be approximately 400 times faster than \texttt{hierNet}, regardless of the true underlying hierarchy and the assumed hierarchy.
+Even for fairly large data, the computation time is very satisfactory for the two-step procedure: for a data set honouring strong hierarchy with $N=200$ observations and $p=1000$ features, that is, approximately $\Sexpr{round(choose(1000,2)/1000)}$ thousand pairwise interactions, the computation time of the two-step procedure assuming strong hierarchy is 1.7 seconds when using the \texttt{cv.glmnet()} function.
+In comparison, for a data set with no more than $N=50$ observations and $p=100$ features, that is, approximately $\Sexpr{round(choose(100,2),-3)}$ pairwise interactions, the computation time of the \texttt{hierNet} technique is 1.8 minutes.
+
+\input{/home/ann-sophie/wip/lasso/interactions/comptime.tex}
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Real data}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+<<echo=FALSE, eval=FALSE, include=FALSE>>=
+library(xtable)
+library(tidyverse)
+library(magrittr)
+library(MESS)
+source(file = "/home/ann-sophie/wip/data/mouse/importMouseData.R")
+source(file = "/home/ann-sophie/wip/data/mouse/gwasFunctions.R")
+source(file = "/home/ann-sophie/wip/lasso/interactions/iLassoFunctions.R")
+
+library(RColorBrewer)
+coul = brewer.pal(8, "Dark2")
+coul = colorRampPalette(coul)(15)[-c(2,4,7)]#[c(8,2,3,4,5,6,7,1,9,10,11,12,13,14,15)]
+palette(coul)
+
+phenoWInt <- c(12,98,113)
+phenoWIntNam <- gsub("Biochem." , "",
+                     gsub("Pleth.base.", "",
+                          gsub("_", "$\\\\_$", names(dataPheno[,phenoWInt]))))
+
+@
+
+<<eval=FALSE, echo=FALSE, include=FALSE>>=
+
+load(file = paste0("/home/ann-sophie/wip/data/mouse/MEI2BinSnpConOutNSp12S"))
+
+# Biochem
+biochem <- grep("Biochem", names(dataPheno))
+biochemDat <- dataPheno[,biochem]
+# Phenotype with interaction
+PHENO <- 12
+outcomeName <- names(dataPheno[,PHENO])
+
+# Return a vector of outcome
+naYs <- which(is.na(dataPheno[miceOfInterest, outcomeName]))
+y <- dataPheno[miceOfInterest, outcomeName][[1]][-naYs]
+
+load(file = paste0("/home/ann-sophie/wip/data/mouse/ME1BinSnpConOutNSp",PHENO))
+tS1 <- format(round(tdiff))
+load(file = paste0("/home/ann-sophie/wip/data/mouse/MEI2BinSnpConOutNSp",PHENO, "S"))
+tS2 <- format(round(tdiff))
+
+
+# GWAS results
+gwasResults <- gwasFct(x = X, y = y)
+# Prepare the data set
+snpsME <- MEIs2$step2$maineffects2
+snpsI <- MEIs2$step2$interactions2
+
+
+plotPrep <-plotPrepFct(results = gwasResults$results, x = X, snpsOI = NULL,
+                       snpsOI2 = NULL, snpsOI3 = NULL,
+                       snpsME = snpsME, snpsI = snpsI, bonfcor = gwasResults$bonfcor)
+
+pdf(paste0("/home/ann-sophie/wip/lasso/manLasPlotBinSnpConOutNSp",PHENO,".pdf"),
+      width = 4, height = 3, pointsize = 11)
+
+par(family = "serif", ps=11, bg=NA, mar = c(4,4,2,1), oma = c(0,0,0,0))
+plotFct(plotPrep, outcomeName, outer = FALSE,
+        white = FALSE, beamer = FALSE)
+
+dev.off()
+
+
+#############################
+par(mfrow = c(1,1), mar = c(2,2,2,2))
+for(i in biochem) {
+  feature <- dataPheno[,i] %>% pull
+  featureName <- names(dataPheno[,i])
+
+  dens <- density(na.omit(feature))
+  plot(1, type = "n", main="",  bty="n", col="grey", lwd=2, font.main = 1,
+         xlab="", ylab="", font.main=1,
+       xlim = range(dens$x), ylim = range(dens$y))
+  mtext(featureName, 3)
+  polygon(dens, col="grey", border="grey", lwd=2, density=20)
+}
+
+
+#############################
+tab <- matrix("", nrow = length(union(MEs1, MEIs2$step2$maineffects2)), ncol = 3)
+all <- union(MEs1, MEIs2$step2$maineffects2)[order(union(MEs1, MEIs2$step2$maineffects2))]
+tab[all %in% MEs1, 1] <- "$\\times$"
+tab[all %in% MEIs2$step2$maineffects2, 2] <- "$\\times$"
+snpsII <- unlist(strsplit(MEIs2$step2$interactions2, ":"))
+snpsI <- which(colnames(X) %in% snpsII)
+tab[all %in% snpsI, ] <- "$\\boldsymbol{\\times}$"
+rownames(tab) <- gsub("_", "$\\\\_$", colnames(X)[MEIs2$step2$maineffects2])
+rownames(tab)[which(all %in% snpsI)] <- paste0("\\textbf{", rownames(tab)[which(all %in% snpsI)], "}")
+colnames(tab) <- c("$\\mathcal{M}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_1)}$",
+                   "$\\mathcal{M}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_2)}$",
+                   "$\\mathcal{I}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_2)}$")
+
+print(xtable(tab,
+      caption = "Summary table listing all significant SNPs detected by the two-step procedure. Rows listed in bold indicate the SNPs between which an interaction is found.", label = "tab:biochem"), type = "latex", file = "/home/ann-sophie/wip/data/mouse/tabBiochem.tex",
+             include.colnames = TRUE, include.rownames = TRUE, booktabs = TRUE,
+             align = "lllll", sanitize.text.function = identity)
+
+@
+
+<<echo=FALSE, eval=FALSE>>=
+#############################
+pdf(paste0("/home/ann-sophie/wip/data/mouse/densPlotsWInt.pdf"),
+      width = 4, height = 3, pointsize = 11)
+par(family = "serif", ps=12, bg=NA, mfrow = c(1,3), mar = c(1,1,1,1), oma = c(0,0,1,0))
+for(i in phenoWInt) {
+  feature <- dataPheno[,i] %>% pull
+  featureName <- names(dataPheno[,i])
+
+  dens <- density(na.omit(feature))
+  plot(1, type = "n", main="",  bty="n", col="grey", lwd=1, font.main = 1,
+       axes = FALSE,  xlab="", ylab="", font.main=1,
+       xlim = range(dens$x), ylim = range(dens$y))
+  mtext(featureName, 3, line = -2, col = "OrangeRed", cex = .6)
+  polygon(dens, col="grey", border="grey", lwd=1, density=20)
+}
+dev.off()
+@
+
+<<eval=FALSE, echo=FALSE>>=
+#############################
+tS1 <- c()
+tS2 <- c()
+MES1 <- list()
+MEIS2 <- list()
+meNames <- list()
+snpsI <- list()
+snpsII <- list()
+dims <- list()
+for(i in 1:length(phenoWInt)) {
+  load(file = paste0("/home/ann-sophie/wip/data/mouse/ME1BinSnpConOutNSp",phenoWInt[i]))
+  MES1[[i]] <- MEs1
+  tS1[i] <- format(round(tdiff))
+  load(file = paste0("/home/ann-sophie/wip/data/mouse/MEI2BinSnpConOutNSp",phenoWInt[i], "S"))
+  tS2[i] <- format(round(tdiff))
+  MEIS2[[i]] <- MEIs2
+  meNames[[i]] <- colnames(X)[MEIs2$step2$maineffects2]
+  snpsII[[i]] <- unlist(strsplit(MEIs2$step2$interactions2, ":"))
+  snpsI[[i]] <- which(colnames(X) %in% snpsII[[i]])
+  dims[[i]] <- dim(X)
+  rm(MEIs2); rm(MEs1); rm(X)
+}
+
+t1 <- data.frame(MEI2 = MEIS2[[1]]$step2$maineffects2)
+rownames(t1) <- meNames[[1]]
+
+allME <- unique(unlist(lapply(1:length(phenoWInt), function(x) MEIS2[[x]]$step2$maineffects2)))
+snpOrd <- unique(unlist(meNames)[order(unlist(meNames))])
+tab <- matrix("", nrow = length(allME), ncol = 3*length(phenoWInt))
+all <- allME[order(allME)]
+cols <- seq(1,(3*length(phenoWInt)), by = 3)
+tab <- list()
+for(i in 1:length(phenoWInt)) {
+  tab[[i]] <- cbind(meNames[[i]],
+                    ifelse(MEIS2[[i]]$step2$maineffects2 %in% MES1[[i]], "$\\bullet$", ""),
+                    rep("$\\bullet$", length(MEIS2[[i]]$step2$maineffects2)),
+                    ifelse(MEIS2[[i]]$step2$maineffects2 %in% snpsI[[i]], "$\\medbullet$", ""))
+  colnames(tab[[i]]) <- c("SNPID", "ME1", "ME2", "MEI2")
+  tab[[i]][,2][which(MEIS2[[i]]$step2$maineffects2 %in% snpsI[[i]])] <- "$\\medbullet$"
+  tab[[i]][,3][which(MEIS2[[i]]$step2$maineffects2 %in% snpsI[[i]])] <- "$\\medbullet$"
+}
+
+if(FALSE) {
+  d1 <- merge(tab[[1]], tab[[2]],
+            by="row.names", all = TRUE)
+  d2 <- merge(d1, tab[[3]],
+              by.x="Row.names", by.y="row.names", all = TRUE)
+  d3 <- subset(dataSNP, subset = dataSNP$SNPID %in% d2$Row.name, select = c(SNPID, Chr))
+  d3 <- d3[match(snpOrd, d3$SNPID),]
+  d4 <- merge(d2, d3,
+              by.x = "Row.names", by.y = "SNPID")
+  rownames(d4) <- d4$Row.names
+
+  d5 <- d4[,c(11,2:10)]
+
+  intSnps <- unique(unlist(snpsII))
+  rownames(d5)[rownames(d5) %in% unique(unlist(snpsII))] <- paste0("\\textbf{", rownames(d5)[rownames(d5) %in% unique(unlist(snpsII))], "}")
+
+  rownames(d5) <- gsub("_", "$\\\\_$", rownames(d5))
+}
+
+d1 <- subset(dataSNP, subset = dataSNP$SNPID %in% snpOrd, select = c(SNPID, Chr)) %>%
+  full_join(as_tibble(tab[[1]]), by = "SNPID") %>%
+  full_join(as_tibble(tab[[2]]), by = "SNPID", suffix = c(".G", ".I")) %>%
+  full_join(as_tibble(tab[[3]]), by = "SNPID")
+
+d2 <- d1[order(d1$Chr),]
+
+intSnps <- unique(unlist(snpsII))
+d2$Chr[d2$SNPID %in% unique(unlist(snpsII))] <- paste0("\\textbf{", d2$Chr[d2$SNPID %in% unique(unlist(snpsII))], "}")
+d2$SNPID[d2$SNPID %in% unique(unlist(snpsII))] <- paste0("\\textbf{", d2$SNPID[d2$SNPID %in% unique(unlist(snpsII))], "}")
+d2$SNPID <- gsub("_", "$\\\\_$", d2$SNPID)
+
+#rownames(tab)[which(all %in% snpsI)] <- paste0("\\textbf{", rownames(tab)[which(all %in% snpsI)], "}")
+colnames(d2) <- c("SNP", "Chr",
+                  rep(c("$\\mathcal{\\scriptstyle M}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_1)}$",
+                   "$\\mathcal{\\scriptstyle M}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_2)}$",
+                   "$\\mathcal{\\scriptstyle I}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_2)}$"),
+                   length(phenoWInt)))
+
+addtorow <- list()
+addtorow$pos <- list(-1, nrow(d2))
+addtorow$command <- c(paste0(paste0('\\toprule & & \\multicolumn{3}{c}{ \\texttt{', phenoWIntNam[1], '}}', collapse=''),
+                           paste0('& \\multicolumn{3}{c}{ \\texttt{', phenoWIntNam[2], '}}', collapse=''),
+                           paste0('& \\multicolumn{3}{c}{ \\texttt{', phenoWIntNam[3], '}}', collapse=''),
+                           '\\\\ ',
+                           '\\cmidrule(r){3-5} \\cmidrule(r){6-8} \\cmidrule(r){9-11}',
+                           ' SNP & ', paste0(colnames(d2)[-1], collapse=' & '),
+                           '\\\\ \\midrule \\endhead'),
+                      "\\bottomrule")
+
+
+print(xtable(d2, align = "llcccccccccc", digits = 0,
+             caption = "Summary table listing all significant SNPs detected by the two-step procedure for the three traits \\texttt{Glucose}, \\texttt{Insulin$\\_$75}, and \\texttt{EnhancedPause}. Columns list the three traits, and, for each trait, SNPs which are included in the sets $\\mathcal{M}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_1)}$, $\\mathcal{M}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_2)}$, $\\mathcal{I}_{\\textsc{h}_\\textsc{S}}^{(\\lambda_2)}$ are indicated by bullets. Rows listed in bold indicate the SNPs between which an interaction is found. ",
+             label = "tab:mouseSnps"),
+      type = "latex", file = "/home/ann-sophie/wip/data/mouse/tabMouseSnps.tex",
+      include.rownames = FALSE, hline.after = NULL, #booktabs = TRUE,
+      latex_options = c("repeat_header"),
+      add.to.row=addtorow, include.colnames = FALSE,
+      tabular.environment="longtable", floating=FALSE,
+      sanitize.text.function = identity)
+@
+
+<<echo=FALSE, eval=FALSE>>=
+iCol <- list(c(1,2), c(3,4), c(5,6,7,8))
+outLab <- gsub("Biochem." , "",
+               gsub("Pleth.base.", "", names(dataPheno[,phenoWInt])))
+
+pdf(paste0("/home/ann-sophie/wip/lasso/manLasPlotBinSnpConOutNSp.pdf"),
+        width = 5, height = 7, pointsize = 16)
+par(mfrow = c(3,1), family = "serif", ps=11, bg=NA, mar = c(2,2,2,1), oma = c(4,4,0,0))
+for(i in 1:length(phenoWInt)) {
+  load(file = paste0("/home/ann-sophie/wip/data/mouse/MEI2BinSnpConOutNSp",phenoWInt[i], "S"))
+  outcomeName <- names(dataPheno[,phenoWInt[i]])
+
+  # Return a vector of outcome
+  naYs <- which(is.na(dataPheno[miceOfInterest, outcomeName]))
+  y <- dataPheno[miceOfInterest, outcomeName][[1]][-naYs]
+
+  # GWAS results
+  gwasResults <- gwasFct(x = X, y = y)
+  # Prepare the data set
+  snpsME <- MEIs2$step2$maineffects2
+  snpsI <- MEIs2$step2$interactions2
+
+  plotPrep <-plotPrepFct(results = gwasResults$results, x = X, snpsOI = NULL,
+                         snpsOI2 = NULL, snpsOI3 = NULL,
+                         snpsME = snpsME, snpsI = snpsI, bonfcor = gwasResults$bonfcor)
+
+  plotFct(plotPrep, outcomeLabel = outLab[i], outer = TRUE,
+          white = FALSE, beamer = FALSE, intCol = iCol[[i]])
+
+  rm(gwasResults)
+  rm(plotPrep)
+  rm(X)
+}
+mtext("Chromosome", side = 1, line = 2, outer = TRUE)
+mtext("-log10(p)", side = 2, line = 2, outer = TRUE)
+dev.off()
+
+@
+
+<<echo=FALSE, eval=FALSE>>=
+iCol <- list(c(1,2), c(3,4), c(5,6,5,7))
+pdf(paste0("/home/ann-sophie/wip/lasso/manLasPlotBinSnpConOutNSp113chr16.pdf"),
+        width = 5, height = 7, pointsize = 16)
+par(mfrow = c(3,1), family = "serif", ps=11, bg=NA, mar = c(2,2,2,1), oma = c(4,4,0,0))
+i <- 3
+
+  load(file = paste0("/home/ann-sophie/wip/data/mouse/MEI2BinSnpConOutNSp",phenoWInt[i], "S"))
+  outcomeName <- names(dataPheno[,phenoWInt[i]])
+
+  # Return a vector of outcome
+  naYs <- which(is.na(dataPheno[miceOfInterest, outcomeName]))
+  y <- dataPheno[miceOfInterest, outcomeName][[1]][-naYs]
+
+  # GWAS results
+  gwasResults <- gwasFct(x = X, y = y)
+  # Prepare the data set
+  snpsME <- MEIs2$step2$maineffects2
+  snpsI <- MEIs2$step2$interactions2
+
+  plotPrep <-plotPrepFct(results = gwasResults$results, x = X, snpsOI = NULL,
+                         snpsOI2 = NULL, snpsOI3 = NULL,
+                         snpsME = snpsME, snpsI = snpsI, bonfcor = gwasResults$bonfcor)
+
+  plotFct(plotPrep, outcomeName, outer = TRUE,
+          white = FALSE, beamer = FALSE, intCol = iCol[[i]], whichchr = 16)
+
+  rm(gwasResults)
+  rm(plotPrep)
+  rm(X)
+mtext("Chromosome", side = 1, line = 2, outer = TRUE)
+mtext("-log10(p)", side = 2, line = 2, outer = TRUE)
+dev.off()
+
+@
+
+We apply our method to the heterogeneous stock of mice data set available from the Wellcome Trust Centre for Human Genetics (\url{http://mtweb.cs.ucl.ac.uk/mus/www/mouse/HS/index.shtml}).
+
+The heterogeneous stock of mice consists of 1,904 individuals from 85 families, all descended from eight inbred progenitor strains, see \citet{mice}.
+Please note that the aim of the example is to demonstrate proof of concept; the proposed method is used as a screening tool for identifying potential interactions. This way we can subsequently investigate the associations using more complicated nested models taking into account the the biological relationships of related subjects.
+The data contains 129 quantitative traits which are classified into six broad categories including behaviour, diabetes, asthma, immunology, haematology, and biochemistry.
+%\citet{mice} show that a genome-wide high-resolution mapping of multiple phenotypes can be achieved using the stock of genetically heterogeneous mice.
+
+A total of 12,226 autosomal SNPs were available for all mice. We omit individuals with missing phenotype, and, as \citet{bakr}, for ``individuals with missing genotypes, we imputed missing values by the mean genotype of that SNP in their family. All polymorphic SNPs with minor allele frequency above 1\% in the training data were used for prediction''.
+Furthermore, the SNPs are dichotomised, with `0' indicating the more common allele and `1' indicating the less common alleles.
+
+For each quantitative trait we are interested in detecting gene-gene interactions (G$\times$G), that is, when the effect of one gene is dependent on another gene.
+The two-step procedure is applied on each outcome separately with 10 repetitions of 10-fold cross validation in both steps under the model assumption of strong hierarchy, $\textsc{h}_\textsc{S}$.
+
+<<eval=FALSE, echo=FALSE>>=
+phenoWIntNam
+dims
+lapply(1:3, function(x) length(MES1[[x]]))
+lapply(1:3, function(x) length(MEIS2[[x]]$step2$maineffects2))
+lapply(1:3, function(x) length(MEIS2[[x]]$step2$interactions2))
+tS1
+tS2
+lapply(1:length(phenoWInt), function(x) MEIS2[[x]]$step2$interactions2)
+@
+
+For the biochemistry outcome \texttt{Glucose} with $N=1499$ non-missing observations, $p = 10996$ SNPs have non-zero variation and are tried in the model.
+$|\mathcal{M}^{\lambda_1}_{\textsc{h}_\textsc{S}}| = 27$ SNPs are selected as main effects in the first step and $|\mathcal{M}^{\lambda_2}_{\textsc{h}_\textsc{S}}| = 41$ main effects and $|\mathcal{I}^{\lambda_2}_{\textsc{h}_\textsc{S}}| = 1$ interaction are selected in the second step. The interacting SNPs are \texttt{CEL-5\_3149134} and \texttt{rs3657663}.
+%
+For the diabetes outcome \texttt{Insulin$\_$75} with $N=1553$ non-missing observations, $p = 10984$ SNPs have non-zero variation and are tried in the model.
+$|\mathcal{M}^{\lambda_1}_{\textsc{h}_\textsc{S}}| = 108$ SNPs are selected as main effects in the first step and $|\mathcal{M}^{\lambda_2}_{\textsc{h}_\textsc{S}}| = 108$ main effects and $|\mathcal{I}^{\lambda_2}_{\textsc{h}_\textsc{S}}| = 1$ interaction are selected in the second step. The interacting SNPs are \texttt{CEL-3\_74975193} and \texttt{rs4172689}.
+%
+For the asthma outcome \texttt{EnhancedPause} with $N=1499$ non-missing observations, $p = 10996$ SNPs have non-zero variation and are tried in the model.
+$|\mathcal{M}^{\lambda_1}_{\textsc{h}_\textsc{S}}| = 54$ SNPs are selected as main effects in the first step and $|\mathcal{M}^{\lambda_2}_{\textsc{h}_\textsc{S}}| = 67$ main effects and $|\mathcal{I}^{\lambda_2}_{\textsc{h}_\textsc{S}}| = 2$ interaction are selected in the second step. SNP \texttt{rs3708061} interacts with both \texttt{rs4164782} and \texttt{rs4164966}.
+%
+The computation time is approximately 10--15 minutes for each step on a standard computer.
+
+In the supplementary material we provide a summary table which lists all significant SNPs detected by the two-step procedure for the three traits \texttt{Glucose}, \texttt{Insulin$\_$75}, and \texttt{EnhancedPause}. Columns list the three traits, and, for each trait, SNPs which are included in the sets $\mathcal{M}_{\textsc{h}_\textsc{S}}^{(\lambda_1)}$, $\mathcal{M}_{\textsc{h}_\textsc{S}}^{(\lambda_2)}$, $\mathcal{I}_{\textsc{h}_\textsc{S}}^{(\lambda_2)}$, defined in \autoref{sec:our}, are indicated by bullets. Rows listed in bold indicate the SNPs between which an interaction is found.
+
+In \autoref{fig:manLasPlot} we show Manhattan plots of genome-wide association studies for \texttt{Glucose}, \texttt{Insulin$\_$75}, and \texttt{EnhancedPause}. The figure shows that no SNP is significant with the commonly used genome-wide significance p-value threshold of $5\times 10^{-8}$ (dashed line) nor with the Bonferroni correction testing each individual hypothesis at $\alpha = 0.05/p$ (solid line). The main effects corresponding to the interactions identified by the two-step procedure are highlighted in the figure. We observe that for \texttt{Glucose} SNPs on chromosome number 5 and 15 are interacting, for \texttt{Insulin$\_$75} SNPs on chromosome number 3 and 16 are interacting, and for \texttt{EnhancedPause} two SNPs on chromosome 16 are interacting on of which is also interacting with a SNP on chromosome 4.
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics{/home/ann-sophie/wip/lasso/manLasPlotBinSnpConOutNSp}
+\caption{Manhattan plots of genome-wide association studies for \emph{\texttt{Glucose}} (top), \emph{\texttt{Insulin$\_$75}} (centre), and \emph{\texttt{EnhancedPause}} (bottom). Cumulated genomic positions are displayed along the first axis, with the negative logarithm (to base 10) of the association p-value for each SNP displayed on the second axis. Thus, each dot on the Manhattan plots represents a SNP. Chromosomes on which interacting SNPs are identified are highlighted. We observe that no SNP is significant with the commonly used genome-wide significance p-value threshold of $5\times 10^{-8}$ (dashed line) nor with the Bonferroni correction testing each individual hypothesis at $\alpha = 0.05/p$ (solid line). Nevertheless, significantly associated interactions are identified by the two-step procedure; the corresponding main effects are highlighted by different symbols in the figure. Please note that for \emph{\texttt{EnhancedPause}} (bottom) the two selected interactions share a main effect, thus, only three SNP are highlighted.}
+\label{fig:manLasPlot}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Discussion}\label{sec:dis}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this paper, we have proposed a two-step procedure, which uses lasso and adaptive lasso for screening for interactions and fitting pairwise interaction models.
+ A key advantage of our framework is that the hierarchical restrictions are no cause for additional computing time compared to both the strong and weak hierarchical lasso as well as the usual lasso for the pairwise interaction model under the assumption of no hierarchy. On the contrary, the computing time is considerably reduced and is highly satisfactory even for fairly large data.
+
+To understand the consequence of a wrong hierarchical assumption we simulated data sets with different (non-)hierarchical structures and applied the two-step procedure under different hierarchical assumptions. As expected, assuming weak or strong hierarchy when the truth is anti-hierarchy (and vice versa) predominantly results in false discoveries of interactions, as does assuming strong hierarchy when the truth is weak hierarchy. Assuming weak hierarchy when the truth is strong hierarchy, for the most part, results in the true interaction being discovered but with many false discoveries blurring the picture. In any case, it seems that, under the right hierarchical restrictions, the cross-validated choices of the penalty parameter succeed in detecting the true interaction but also include too many variables.
+
+To understand the consequence of not requiring hierarchy we compared our method to the usual lasso for the pairwise interaction model under the assumption of no hierarchy and found that, regardless of the true hierarchical structure, the usual lasso tends to discover the true interaction but also many false interactions.
+
+We conclude that the consequence of a wrong hierarchical assumption is no true discoveries, whereas the consequence of no hierarchical assumption is an immense amount of false discoveries.
+%
+
+Hence, choosing the ``correct'' hierarchical assumption is crucial but almost certainly impossible since the true hierarchical structure is unknown and may not be the same for all features. Comparing the results and regularisation paths of different model assumptions may, however, help in shedding light on the underlying hierarchical structure of data, and the short computing time of the two-step procedure is very advantageous in this regard.
+
+
+If the underlying hierarchical structure of data is completely unknown we recommend that the hierarchical assumption is chosen as follows: If controlling the expected proportion of interaction discoveries which are false is the main concern, assuming strong hierarchy is recommended. If discovering the true interaction is prioritised but the \ifdr{} is still a concern, assuming weak hierarchy is recommended. If discovering the true interaction is prioritised and neither the \ifdr{} nor the computing time is any concern assuming no hierarchy is recommended.
+
+
+In this paper, we see the choosing of the regularisation parameter primarily as a means to an end. Choosing the right penalty parameter is, however, difficult and, as is seen in \autoref{sec:sim}, the cross-validated choices often include too many features.
+\citet{stabsel} show that choosing the right amount of regularisation is much less critical for the stability path used for stability selection than for the regularisation path used for cross-validation and that there is a better chance of selecting truly relevant variables with stability selection. Thus, it would be interesting to apply stability selection for choosing the right penalty parameters in the two-step procedure.
+
+
+Our work has potential applications to cross-omics studies and genome-wide studies of G$\times$G, that is, epistatic pairs where the effect of one gene (locus) is dependent on the presence of a \emph{modifier gene}.
+It is possible to extend our framework to the case of multi-way interactions and, thereby, to the application to studies of, e.g., higher-order epistatic interactions.
+Increasing the order of interactions does, however, pose quite the challenge: given $p$ features, the number of terms in a linear model which includes every features and every possible interaction is $\sum_{j=1}^p\binom{n}{j}=2^p$. Thus, even the case where only pairwise and three-way interactions are allowed is computationally demanding. Furthermore, the presence of potential higher-order interactions has serious implications for the interpretation of the model and dramatically increases the chance of finding false-positive discoveries.
+
+As a special case, our work has potential applications to studies of genotype by environment interactions (G$\times$E), that is, when two different genotypes respond to environmental variation in different ways.
+In studies such as genetic epidemiology, presumably, a small-scale number of environmental factors and a large-scale number of genes will be available. In this case, penalisation of the environmental factors may be undesirable, and, with a slight modification, the two-step procedure is capable of taking this into account.
+For example, in order to select G$\times$E when the model is subject to the restriction of weak hierarchy, $\textsc{h}_\textsc{W}$, one could skip step one of the two-step procedure, define $\mathcal{M}_{\textsc{h}_\textsc{W}}$ by the set of environmental factors, and define $\mathcal{I}_{\textsc{h}_\textsc{W}}$ as the set of pairwise interactions between genes and environmental factors. In order to select G$\times$E when the model is subject to the restriction of strong hierarchy, $\textsc{h}_\textsc{S}$, one could include genes in step one of the two step procedure, estimate $\mathcal{M}_{\textsc{h}_\textsc{S}}^{(\lambda_1)}$ by the union of genetic effects selected in step one and the environmental factors, and estimate $\mathcal{I}_{\textsc{h}_\textsc{S}}$ by the set of pairwise interactions between genetic effects selected in step one and the environmental factors.
+
+Lasso is a very useful technique for simultaneous estimation and variable selection. However, it has two major drawbacks. First, it does not possess the oracle property; that is, it does not perform as well as if the true underlying model was given in advance. Secondly, it is somewhat indifferent to grouping effects, that is, the selection among a set of strong but correlated features. Even though the adaptive lasso yields consistent estimates of the parameters while retaining the attractive convexity property of the lasso, see \citet{adaptivelasso}, it does not capture any grouping effect.
+The doubly regularised technique \emph{elastic net} proposed by \citet{elasticnet} encourages grouping effect, but it does not necessarily possess the oracle property. However, the adaptive elastic net proposed by \citet{adapelnet} inherits some of the desirable properties of the adaptive lasso and elastic net, and, in particular, it has the oracle property under certain regularity conditions. Hence, we intend to pursue the application of the two-step procedure with the adaptive elastic net in the case of correlated features.
+In the case of dependant features we should, however, beware that an observed interaction may be \emph{spurious}; that is, an interaction between two features, $X_1$ and $X_2$, say, may be detected in the sample even when there is no true interaction in the population. The reason is that when the correlation between $X_1$ and $X_2$ increases so does the correlation between $X_1X_2$ and $X_1$, which results in an overlap between the variance explained by $X_1X_2$ and the variance explained by $X_1$.
+Dependence between gene and environment, for example, can arise in several ways including mediation, pleiotropy, and confounding, and several examples of gene-environment interaction under gene-environment dependence have recently been published, see, e.g., \citet{Johnson2014} and \citet{ege}. Caution in reporting interactions for genetic markers is, however, urged by \citet{ged} who show that under gene-environment dependence, a statistical interaction can be present between a marker and environment even if there is no interaction between the causal variant and the environment.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                              Appendix                                     %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{appendices}
+\section{Other hierarchical restrictions} \label{app:appendix}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Anti-Hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours anti-hierarchy.
+Thus, we consider simulations for different effects of the feature $\bX_3$ and the interaction between the $\bX_1$ and $\bX_2$, that is for different given non-zero values of $\bbeta_3$ and $\bTheta_{12}$.
+We compare the results to results obtained by applying the usual lasso on the joint set of main effects and interactions.
+
+In \autoref{fig:plotsB3} we show the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted lines) as a function of $\bbeta_3$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. The lines are coloured according to the true value of $\bTheta_{12}$.
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet12bet1Anti100600200}%{plotblackbet12bet1Anti100600200}
+\caption{The data generating process honours anti-hierarchy. Mean \ifdr{} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. Lines are coloured according to the true value, $\bTheta_{12}$, of the interaction.}
+\label{fig:plotsB3}
+\end{figure}
+
+We observe that the results are quite similar to those obtained when the data generating process honours strong and weak hierarchy: under \hs{} the mean \ifdr{} is approximately  zero for all values of the two true main effects and all values of the true interaction and whenever the value of the true interaction is greater than 1, it is discovered more than 70 \% of the times. We do, however, observe that the average number of true interaction discoveries is decreasing in the size of the true main effects, which agrees with the notion of anti-hierarchy being contrary to strong hierarchy.
+%
+More false interactions are discovered when the hierarchical restriction is relaxed and \hw{} is assumed, and the average number of true interaction discoveries is slightly reduced and, again, decreasing in the size of the true main effects.
+%
+Under \ha{} the mean \ifdr{} is approximately 100 \%, that is, mainly false interactions are discovered. The average number of true interaction discoveries decreases
+in the true main effects and increases as the size of the true interaction increases, but it does not exceed 80 \%. This is conform to our expectation.
+%
+Under \hn{} the one true interaction is likely to be among the many false discoveries.
+
+
+We see that even though assumptions \hs, \hw, and \hn{} violate the true data generating process, the procedure is still able to detect the true interaction.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Pure Interaction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours the pure interaction set-up.
+Thus, we consider simulations for different effects of the interaction between the $\bX_1$ and $\bX_2$, that is for different given non-zero values of $\bTheta_{12}$.
+We compare the results to results obtained by applying the usual lasso on the joint set of main effects and interactions.
+
+In \autoref{fig:plotsPI} we show the mean \ifdr{} (solid line) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted line) as a function of $\bTheta_{12}$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively.
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet1bet12PI100600200}%{plotblacknonebet12PI100600200}
+\caption{The data generating process honours the pure interaction set-up. Mean \ifdr{} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bTheta_{12}$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. }
+\label{fig:plotsPI}
+\end{figure}
+
+
+We observe that under \hs{} the mean \ifdr{} is 0 when the value of the true interaction is greater than 0.6. When the value of the true interaction is less than 0.6 the average number of true as well as false interaction discoveries is zero resulting in the mean \ifdr{} being undefined. The average number of true interaction discoveries is increasing in the size of the true interaction, and for values greater than 1, the true interaction is discovered more than 80 \% of the times.
+%
+Under \hw{} the mean \ifdr{} is, in general, greater than 80 \% and the average number of true interaction discoveries is increasing in the size of the true interaction, and for values greater than 1.2, the true interaction is discovered more than 80 \% of the times
+%
+Under \ha{} the mean \ifdr{} is approximately 100 \%. The average number of true interaction discoveries is increasing in the size of the true interaction, but only for values greater than 2.2 is the true interaction discovered more than 80 \% of the times
+%
+Under \hn{} the mean \ifdr{} is greater than 80 \% and the average number of true interaction discoveries is 100 \% whenever the size of the true interaction is greater than 0.6.
+
+\end{appendices}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                              EL Bib                                       %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\clearpage
+%\bibliographystyleonline{dinat}
+%\bibliographyonline{/home/ann-sophie/wip/latex/web}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                 Bib                                       %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{apalike}%{ama}
+\bibliography{/home/ann-sophie/wip/latex/litteratur}
+
+
+%\bibliographystyle{ama}%{plainnat}%{unsrt}%{ieeetr}%
+%\bibliography{/home/ann-sophie/wip/latex/litteratur}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                Tables                                     %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\pagebreak
+\pagenumbering{gobble}
+\processdelayedfloats
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                               Appendix                                    %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{A\arabic{figure}}
+\setcounter{table}{0}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+
+
+

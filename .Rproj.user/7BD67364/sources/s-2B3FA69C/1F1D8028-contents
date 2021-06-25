@@ -1,0 +1,927 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[danish,UKenglish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\PassOptionsToPackage{usenames}{color}
+\PassOptionsToPackage{usenames,dvipsnames}{xcolor}
+
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[headheight=120pt, top=1.2in, bottom=1in, left=1in, right=1in]{geometry}
+
+%\graphicspath{{/home/ann-sophie/wip/lasso/interactions/}}
+\input{/home/ann-sophie/wip/latex/preamble}
+\usepackage[nomarkers, notablist, nofiglist]{endfloat}
+\usepackage{tcolorbox}
+\usepackage{algorithm}
+\newcommand{\algorithmautorefname}{Algorithm}
+%\usepackage[nomarkers, notablist, nofiglist]{endfloat}
+
+\usepackage{multibib}
+\newcites{online}{Electronic References}
+
+\input{/home/ann-sophie/wip/latex/commands}
+
+\usepackage[color]{changebar}
+\setlength\changebarsep{10pt}
+\setlength\changebarwidth{3pt}
+\cbcolor{myred}
+\newcommand{\Blue}[1]{\textcolor{myblue}{#1}}
+\definecolor{newgreen}{HTML}{1B9E77}
+
+\newcommand{\diag}{\text{diag}}
+\newcommand{\trace}{\text{trace}}
+\newcommand{\sign}{\text{sign}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\minimize}{minimize\,}
+\DeclareMathOperator*{\minimise}{minimise\,}
+\DeclareMathOperator*{\maximize}{maximize\,}
+\DeclareMathOperator*{\maximise}{maximise\,}
+
+\newlength{\xdescwd}
+\usepackage{environ}
+\makeatletter
+\NewEnviron{xdesc}{%
+  \setbox0=\vbox{\hbadness=\@M \global\xdescwd=0pt
+    \def\item[##1]{%
+      \settowidth\@tempdima{\textbf{##1}}%
+      \ifdim\@tempdima>\xdescwd \global\xdescwd=\@tempdima\fi}
+  \BODY}
+  \begin{description}[font=\bf,leftmargin=\dimexpr\xdescwd+.5em\relax,
+    labelindent=0pt,labelsep=.5em, topsep=12pt,
+    labelwidth=\xdescwd,align=left]\BODY\end{description}}
+\makeatother
+
+\newenvironment{theory}[1]% environment name 
+{% begin code 
+  \par\vspace{\baselineskip}\noindent 
+  \textbf{Theory (#1)}\begin{itshape}% 
+  \par\vspace{\baselineskip}\noindent\ignorespaces 
+}% 
+{% end code 
+  \end{itshape}\ignorespacesafterend 
+}
+
+
+\theoremstyle{definition}
+\newtheorem*{definition}{Definition}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%               Titel                    %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Edgwas} %
+\author{Ann-Sophie Buchardt \\ \small Section of Biostatistics, Department of Public Health \\ \small University of Copenhagen}
+\date{\today}%
+
+\begin{document}
+
+
+\maketitle
+\vspace{.1in}\noindent\makebox[\linewidth]{\color{JungleGreen}\rule{\paperwidth}{1pt}}\vspace{.1in}
+
+<<echo=FALSE, eval=TRUE, include=FALSE>>=
+rm(list=ls())
+gc()
+
+knitr::opts_chunk$set(echo=FALSE, fig.width=6.27*.7, fig.height=6.27*.7, out.width = "70%", fig.show='hold', dev = 'pdf', dev.args=list(pointsize=11, family = "serif"))
+
+opts_knit$set(global.par = TRUE)
+@
+
+<<include=FALSE>>=
+library(xtable)
+library(tidyverse)
+library(magrittr)
+library(MESS)
+library(MASS)
+library(glasso)
+library(car)
+
+library(RColorBrewer)
+coul = brewer.pal(8, "Dark2") 
+coul = colorRampPalette(coul)(15)[-c(2,4,7)]
+palette(coul)
+@
+
+
+\begin{abstract}
+
+Polygenic risk scores (PRSs) are widely employed in genomic or multi-omics data analyses for predicting and understanding genetic architectures. PRSs are constructed from ``weights'' derived from a genome-wide association study (GWAS) and may have substantially higher predictive performance than the individual genome-wide statistically-significant hits, which indicates that a trait may be very polygenic. 
+
+Despite PRSs being widely used as a detection mechanism for sets of genetic markers, e.g., single-nucleotide polymorphisms (SNPs), causing a single trait, it is not clear how useful they are for detecting sets of genetic markers, which might influence multiple, simultaneously measured traits in a multivariate GWAS. % where $p \gg N$
+
+As an alternative to modelling a completely unstructured correlation matrix for the correlation among traits, which is computationally expensive, we approximate the problem using PRSs for each outcome component individually and compute the precision matrix between all PRSs using graphical lasso to obtain a sparse matrix. This way, approximate zeroes induce conditional independence and yields information about clusters of traits sharing genetic features.
+
+We consider a method for approximating (the matrix inverse of) the correlation matrix of multiple traits using PRSs, under the assumption that important knowledge lies in the marginal effect of a feature on a trait and that this knowledge should be used when analysing multiple traits simultaneously.
+
+We compare the method with fully parametric multivariate techniques on simulated data using R and illustrate the utility of the methods by examining a data set of \red{---} and show that \red{---}.
+
+\end{abstract}
+
+{\noindent \textbf{Keywords:} polygenic risk scores; multiple traits, multivariate GWAS, pleiotropy}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}\label{sec:intro}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%The collection of comprehensive phenotypic information on traits  capturing complex patterns of gene regulation has gained attention in genetic studies. 
+Joint association analysis of multiple, simultaneously measured quantitative traits in a genome-wide association study (GWAS), i.e., a multivariate GWAS, has gained attention in genetic studies as it offers several advantages over analysing each trait in a separate GWAS. 
+While single-trait GWASs have found numerous novel loci associated with complex diseases, traits are often correlated and may be influenced by pleiotropic genes % Pleiotropy occurs when one gene influences two or more seemingly unrelated phenotypic traits. Such a gene that exhibits multiple phenotypic expression is called a pleiotropic gene.
+and, therefore, a joint modelling approach can be used to increase power.
+
+
+<<eval=FALSE, echo=FALSE>>=
+#####################
+# SIMULATIONS
+#####################
+N <- 100
+q <- 4
+traits <- c("SBP", "DBP", "Weight", "Height")
+p <- 1
+allCombi <- combn(1:q, 2) 
+set.seed(1)
+
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+SigmaE <- diag(x = 1, nrow = q, ncol = q)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:2] <- 2
+YY <- X %*% B + mvrnorm(n = N, rep(0, q), SigmaE)
+Y <- scale(YY)
+cor(Y)
+cov(Y)
+
+scatElli <- function(x, y1, y2) {
+  plot(y1, y2, col = factor(x), bty = "n",
+       xlab = "", ylab = "", xlim = c(-2.5,2.5), ylim = c(-2.5,2.5))
+  for(i in unique(x)) {
+    ellipse(center = colMeans(cbind(y1[x == i],y2[x == i])), shape = cov(cbind(y1[x == i], y2[x == i])),
+          radius = sqrt(qchisq(.9, df=2)), col = "gray", lwd = 1, center.pch = NULL, grid = FALSE)
+  }
+}
+
+width <- 8.27-1-1 #5.47 #11.69-1.4-1 #8.27-1-1.8 #8.27-1-1
+height <- (width*2/3+width*2/3/7)*1
+
+pdf("/home/ann-sophie/wip/noDisease/boxplotsEX1a.pdf",
+    width=width, height=height, pointsize = 12)
+par(mar = c(4,4.5,2,2), family = "serif", bg=NA) 
+layout(matrix(c(1,2,3,4,5,6,7,7,7), nrow = 3, byrow = TRUE), heights = c(3,3,1))
+#layout(matrix(c(1,2,3,4,5,6,7,7), nrow = 4, byrow = TRUE), heights = c(3,3,3,1))
+for(j in 1:ncol(allCombi)) {
+  scatElli(x = X[,1], y1 = Y[,allCombi[1,j]], y2 = Y[,allCombi[2,j]])
+  mtext(text = traits[as.numeric(allCombi[1,j])], side = 1, line = 3, cex = .8)
+  mtext(text = traits[as.numeric(allCombi[2,j])], side = 2, line = 3, cex = .8)
+}
+par(mar = c(0,0,0,0))
+plot.new()
+legend("center", legend = 0:2, title = "X", col = 1:3, pch = 1, bty = "n", ncol = 3)
+dev.off()
+    
+B[1, 1:2] <- 0
+Y <- X %*% B + mvrnorm(n = N, rep(0, q), SigmaE)
+
+pdf("/home/ann-sophie/wip/noDisease/boxplotsEX1b.pdf",
+    width=width, height=height, pointsize = 12)
+par(mar = c(4,4,2,2), family = "serif", bg=NA) 
+layout(matrix(c(1,2,3,4,5,6,7,7), nrow = 4, byrow = TRUE), heights = c(3,3,3,1))
+for(j in 1:ncol(allCombi)) {
+  scatElli(x = X[,1], y1 = Y[,allCombi[1,j]], y2 = Y[,allCombi[2,j]])
+  bquote(Y[.(as.numeric(allCombi[1,j]))])
+  mtext(text = bquote(Y[.(as.numeric(allCombi[1,j]))]), side = 1, line = 3, cex = .8)
+  mtext(text = bquote(Y[.(as.numeric(allCombi[2,j]))]), side = 2, line = 3, cex = .8)
+}
+par(mar = c(0,0,0,0))
+plot.new()
+legend("center", legend = 0:2, title = "X", col = 1:3, pch = 1, bty = "n", ncol = 3)
+dev.off()
+
+@
+
+
+\begin{figure}[!htb]
+\centering
+\includegraphics{/home/ann-sophie/wip/noDisease/boxplotsEX1a}
+\caption{Pairwise scatter plots of simulated data with all traits plotted against each other and coloured according to the value of the single feature, a certain SNP. We have added 90\% confidence ellipses for each group, with the centre being the group mean, the shape the group covariance matrix, and the radius the square root of the value of the $\chi^2$-distribution with two degrees of freedom at 0.1.
+\emph{Top left}: This plot suggests that the SNP influences both the SBP and DBP, since it reveals a three clusters of observations complying with the values 0, 1, or 2 of the SNP in \emph{both} the direction of SBP and DBP. 
+\emph{Top right}: This plot reveals a faint clustering in the direction of SBP suggesting that the SNP influences SBP and not weight.
+\emph{Middle left}: This plot reveals a faint clustering in the direction of SBP suggesting that the SNP influences SBP and not height.
+\emph{Middle right}: This plot  reveals a faint clustering in the direction of DBP suggesting that the SNP influences DBP and not weight.
+\emph{Bottom left}: This plot  reveals a faint clustering in the direction of DBP suggesting that the SNP influences DBP and not height.
+\emph{Bottom right}: This plot reveals no relation between weight, height, and the SNP.} 
+\label{fig:boxplotsEX1a}
+\end{figure}
+
+The motivation for joint analyses is illustrated by the simple case of four outcome components and one feature: Suppose a researcher in medical science is interested in the impact of a certain gene on the systolic blood pressure (SBP) and the diastolic blood pressure (DBP), and that we have observations of two additional traits, weight and height. 
+\iffalse
+We assume that we have $N$ observations of the four-dimensional outcome $\bY\in\mathbb{R}^{N\times 4}$, e.g., the SBP and the DBP, $\mathbf{Y}_1$ and $\mathbf{Y}_2$, respectively, as well as two other traits, e.g., weight and age, and an associated categorical feature $\bX\in\{0,1,2\}^{N}$, e.g., an indicator variable taking the value of 0, 1 or 2 if the genotype at a certain single nucleotide polymorphisms (SNP) is aa, Aa or AA (alleles are arbitrarily called A or a), respectively. 
+\fi
+Researchers may be interested in whether the presence of a certain SNP differs between traits or have an effect on several traits simultaneously for both clinical and theoretical reasons. 
+Pairwise scatter plots of a simulated data set are shown in \autoref{fig:boxplotsEX1a}: They indicate a pattern of gene regulation where the SNP simultaneously influences the SBP and DBP but no other traits. This encourages a joint analysis of SBP and DBP and individual analyses of weight and height. 
+%In each plot two outcome components are plotted against each other and the observations are coloured according to the value of the SNP yielding three groups of observations. We have added 90\% confidence ellipses for each group, with the centre being the group mean, the shape the group covariance matrix, and the radius the square root of the value of the $\chi^2$-distribution with two degrees of freedom at 0.1. 
+%As expected, plotting $\mathbf{Y}_1$ against $\mathbf{Y}_2$ reveals clear clusterings of the observations corresponding to the value of $\mathbf{X}$. Plotting $\mathbf{Y}_1$ against any other outcome component besides $\mathbf{Y}_2$ reveals a faint clustering in the direction of $\mathbf{Y}_1$, and a similar picture is evident for $\mathbf{Y}_2$. Plotting $\mathbf{Y}_3$ against $\mathbf{Y}_4$ gives no indication of clustering. This encourages a joint analysis of $\mathbf{Y}_1$ and $\mathbf{Y}_2$ and separate analyses of all other outcome components. 
+
+%In practice, to determine the circumstances in which joint analyses of associations between multiple traits and a set of variants in a genetic region perform best in terms of power, not only should the correlation patterns between the traits be considered, but also the number of traits in the study, the number of traits affected by the genetic components, and the sign of the genetic component effects (i.e., allowing the reality of opposite effects), see \url{https://www.biorxiv.org/content/10.1101/610287v1.full}.
+
+While a univariate GWAS may fail to capture complex patterns of gene regulation, carrying out a multivariate genome-wide association (GWA) method may vastly increase the complexity of the analyses. For example, an unconstrained correlation matrix for $q$ traits requires $q(q - 1)/2$ parameters, and modelling environmental variation and measurement error requires at least as many additional parameters. % see (Kirkpatrick and Meyer 2004) 
+Such large numbers of parameters can lead to instability in parameter estimates, require very large data sets, and present considerable computational challenges.
+
+Different multivariate GWA methods have already been formulated for multiple traits influenced by pleiotropic genes. For example, \citet{emma} propose a method, efficient mixed-model association (EMMA), which corrects for population structure and genetic relatedness in model organism association mapping. 
+This method for exact computation of standard test statistics is computationally impractical for even moderate-sized genome-wide association studies, and \citet{gemma} present an efficient exact method, genome-wide efficient mixed-model association (GEMMA), which they claim to be approximately $N$ times faster with $N$ being the sample size. 
+Both methods are implemented in the R in the packages \texttt{emma} and \texttt{gemma}, respectively, but the implemented algorithms are not suitable for large scale problems in terms of the number of traits.
+Several approximate methods have also been proposed, see \citet{gemma} for a comprehensive overview. 
+Other methods make use of canonical correlation analysis (CCA) and multivariate analysis of variance (MANOVA) but \red{the problem...???}.
+%https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0095923
+
+The objective of this paper is to propose a computationally efficient method for a large number of traits by simultaneously analysing multiple correlated quantitative traits in clusters that share some genetic component under the assumption that the trait values in a cluster follow a multivariate normal distribution. 
+
+%Our work is motivated by the wish to efficiently analyse data combined in clusters of traits that share some genetic component while taking into account variation in multiple genetic variants. 
+
+%To this end, we utilise polygenic risk scores (PRSs) which are widely employed in animal, plant, and behavioural genetics for predicting and understanding genetic architectures. For a single trait, $\mathbf{y}\in\mathbb{R}^{N}$, PRSs are typically constructed from ``weights'' derived from a GWAS. 
+
+We propose a versatile tool called \red{edge-wise multivariate} genome-wide association study (EdGwas), which implements the method of finding clusters of correlated outcome components (traits) that share some genetic component by means of polygenic risk scores (PRSs) \red{under the assumption that features which are marginally highly associated with a trait should carry more weight in a joint analysis of traits}. 
+The approach is motivated by utilising the widely available PRSs as numeric predictors to identify conditional independences of traits giving rise to clusters of traits, and, thereby, being able to analyse the data combined in clusters and increase power and gain computational advantages.
+We assume that the collection of PRSs follows a multivariate Gaussian distribution, thus, with the property that if the $ij$th component of the matrix inverse covariance matrix \red{(the precision matrix)} is zero, then the PRSs $i$ and $j$ are conditionally independent, given the other PRSs, see \red{cite{???}}. 
+By estimating a sparse version of the precision matrix of the PRSs, approximate zeroes induce conditional independence, encoded by edges in an undirected graph. Thus, estimating a sparse graphical model where nodes represent the PRSs, and the edges encode conditional independence relations among the associated nodes, renders clusters of traits sharing genetic feature\red{s}. Having identified the clusters, we are able to analyse the data combined, that is, in somewhat low-dimensional multivariate GWASs, and increase power. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\vspace{\baselineskip}%\subsection{Organisation of the paper}\label{sec:org}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%The rest of the paper is organised as follows. 
+In \autoref{sec:method} we introduce the \red{conceptual framework} of EdGwas and the theoretical framework including linear regression models, linear mixed-effects models, the concept of PRSs, conditional independence, and sparsity of correlation matrices.%: These are the main concepts of EdGwas, since, from estimates of univariate linear regressions we compute PRSs for each outcome component separately, and, using graphical lasso, we estimate a sparse version of the precision matrix of all the PRSs. From these we induce conditional independence of the PRSs and we use this information to generate clusters of the outcome components to be analysed jointly. 
+
+We study our method and other techniques on real data, as well as simulated data, in \autoref{sec:res}. The procedure is implemented using the R packages \texttt{MESS} by \citet{MESS} and \texttt{glasso} by \citet{glassoR}; the R code is available online, see \citep{website:edgwas}.  %\citeponline{website:edgwas}
+We conclude with a discussion and recommendations in \autoref{sec:dis}. 
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Method}\label{sec:method}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We focus on linear regression models, which are suitable when the outcome is quantitative, and ideally when the error distribution is Gaussian. 
+%The form of technique in our methodology is easily generalised to other regression models. See \citet{sls} for a discussion on generalisations of simple linear models and the lasso which are suitable for different types of outcome.
+\iffalse
+Given $N$ observations of a single outcome $\mathbf{y}\in\mathbb{R}^{N}$ and a single feature $\mathbf{x}\in\mathbb{R}^{N}$, the \emph{univariate simple linear regression} model takes the form
+\begin{align}
+  \mathbf{y}_i = \mathbf{x}_i\beta + \boldsymbol{\epsilon}_i, \label{eq:unilinreg}
+\end{align}
+where $\beta\in\mathbb{R}$ is a regression coefficient and $\boldsymbol{\epsilon}\in\mathbb{R}^{N}$ is a vector of zero-mean Gaussian random errors. Without loss of generality, we assume that the outcome values are centred, that is, $\sum_{i=1}^N\mathbf{y}_i=0$, so the intercept term $\beta_{0}$ can be omitted from the model. 
+
+The linear regression model for a single outcome is generalised by the multivariate regression model for multiple outcome components by assuming a linear model for each. 
+Thus, for a sample of $N$ observations of $q$ outcome components represented by the columns of the matrix $\mathbf{Y}=(\mathbf{y}_1,\ldots,\mathbf{y}_q)\in\mathbb{R}^{N \times q}$ and a single feature $\mathbf{x}\in\mathbb{R}^{N}$ the \emph{multivariate simple linear regression} model takes the form
+\begin{align}
+  \mathbf{Y} = \mathbf{x}\boldsymbol{\beta} + \mathbf{E}, \label{eq:multlinreg}
+\end{align}
+where $\boldsymbol{\beta} = (\beta_1,\ldots,\beta_q) \in\mathbb{R}^{1 \times q}$ is a vector of unknown regression coefficients and $\mathbf{E}\in\mathbb{R}^{N \times q}$ is a positive definite matrix of Gaussian random errors. Here, we assume that each component of the outcome is centred, that is $\frac{1}{N}\sum_{i=1}^N\mathbf{Y}_{il}=0$, and we omit the intercept term. %\red{Also unit variance?}
+
+For multiple features, the univariate simple linear regression model is generalised by the univariate multiple regression model for more than one feature. 
+
+\fi
+Given $N$ observations of a single outcome $\mathbf{y}\in\mathbb{R}^{N}$ and $p$ features $\mathbf{X}\in\mathbb{R}^{N \times p}$ the \emph{univariate multiple linear regression} model takes the form
+\begin{align}
+  \mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \boldsymbol{\epsilon}, \label{eq:simmultpllinreg}
+\end{align}
+where $\boldsymbol{\beta} = (\beta_1,\ldots,\beta_p) \in\mathbb{R}^{p}$ is a vector of unknown regression coefficients and $\boldsymbol{\epsilon}\in\mathbb{R}^{N}$ is a vector of zero-mean Gaussian random errors. Without loss of generality, we assume that the outcome is centred, that is $\frac{1}{N}\sum_{i=1}^N\mathbf{y}_{i}=0$, and we can omit the intercept term from the model. 
+
+For a sample of $N$ observations of $q$ outcome components, $\mathbf{Y}=(\mathbf{y}_1,\ldots,\mathbf{y}_q)\in\mathbb{R}^{N \times q}$, and $p$ features $\mathbf{X}\in\mathbb{R}^{N \times p}$ the \emph{multivariate multiple linear regression} model takes the form
+\begin{align}
+  \mathbf{Y} = \mathbf{X}\mathbf{B} + \mathbf{E}, \label{eq:multmultpllinreg}
+\end{align}
+where $\mathbf{B} = (\boldsymbol{\beta}_1,\ldots,\boldsymbol{\beta}_q) \in\mathbb{R}^{p \times q}$ is a matrix of unknown regression coefficients and $\mathbf{E}\in\mathbb{R}^{N \times q}$ is a positive-definite matrix of Gaussian random errors. Still, we assume that each component of the outcome is centred, and we omit the intercept term. %\red{Also unit variance?}
+
+
+
+%\red{To summarise:... }
+%For the first step of the procedure, we generate PRSs for each trait individually, that is, one PRS per trait.
+%For the second step of the procedure, we estimate a sparse version of the precision matrix between all PRSs.
+
+As an extension to the multiple linear regression models linear mixed-effects models (LMM) have been shown to be a powerful and effective tool for accounting for the population structure as well as the genetic architecture of multiple traits.
+
+Standard multiple linear regression models with standard estimation techniques assume that errors of the outcome are independent.  
+In the linear mixed-effects model, observations are assumed to be inhomogeneous in the sense that they are not independent but grouped. We let $l=1,\ldots,N$ be the grouping index and $i = 1,\ldots, N_l$ the observation index within a group, $l$. We denote by, $N_T = \sum_{l=1}^N N_l$ the total number of observations. 
+
+\iffalse
+We introduce the linear mixed effects model by considering a single trait $\mathbf{y}\in\mathbb{R}^{N_T}$. Thus, for each group, $l=1,\ldots,N$, we observe the univariate outcome $\mathbf{y}\in\mathbb{R}^{N_l}$, for which a univariate linear mixed-effects model can be used to explain the phenotypic variation:
+\begin{align*}
+  \mathbf{y}_l = \beta_0 + \mathbf{X}_l\boldsymbol{\beta} + \mathbf{Z}_l\boldsymbol{\alpha}_l + \boldsymbol{\epsilon}_l, \quad l=1,\ldots N,
+\end{align*}
+where $\boldsymbol{\beta} \in \mathbb{R}^{p}$ is a vector of regression coefficients for the fixed effects with fixed-effects design matrices $\mathbf{X}_l \in \mathbb{R}^{N_l \times p}$; $\boldsymbol{\alpha}_l \in \mathbb{R}^{r}$ are group-specific vectors of regression coefficients for the random effects with random-effects design matrices $\mathbf{Z}_l \in \mathbb{R}^{N_l \times r}$, and $\boldsymbol{\epsilon}_l \in \mathbb{R}^{N_l}$ are group-specific residual errors caused by non-additive genetic variation, random environmental effects, and measurement error.  
+We assume that
+\begin{itemize}
+    \item[(i)] $\boldsymbol{\epsilon}_l \sim \mathcal{N}_{N_l}(\mathbf{0}, \sigma_{\boldsymbol{\epsilon}}^2 \mathbf{I}_{N_l})$ and uncorrelated for $l=1,\ldots,N$;
+    \item[(ii)] $\boldsymbol{\alpha}_l \sim \mathcal{N}_r (\mathbf{0}, \sigma_{\boldsymbol{\alpha}}^2 \mathbf{H})$ and uncorrelated for $l=1,\ldots,N$;
+     \item[(iii)] $\boldsymbol{\epsilon}_1,\ldots,\boldsymbol{\epsilon}_N,\boldsymbol{\alpha}_1,\ldots,\boldsymbol{\alpha}_N$ are independent.
+  \end{itemize}
+Here $\mathbf{H}\in\mathbb{R}^{r \times r}$ is a general covariance matrix. Possible structures for $\mathbf{H}$ may be a multiple of the identity, a diagonal or a general positive definite matrix. 
+In the following we assume that $\mathbf{H}$ is a known additive relationship matrix among the individuals.
+\iffalse
+: assuming that $\mathbf{X}$ is a genotype matrix and $\mathbf{X}_{ij}$ takes the value 0, 1, or 2 if the genotype of the $i$th individual at SNP $j$ is aa, Aa, or AA, respectively, the genetic relationship between individual $i$ and $i'$ can, see \cite{heritab} and \cite{gcta}, be estimated by
+\begin{align*}
+  \mathbf{H}_{ii'} = \frac{1}{S} \sum_{j=1}^S \frac{(\mathbf{X}_{ij} - 2p_j)(\mathbf{X}_{i'j} - 2p_j)}{2p_j(1-p_j)}
+\end{align*}
+with $S$ being the number of SNPs and $p_j$ the frequency of the reference allele for SNP $j$. \cite{heritab} and \cite{gcta} argues that estimating the total heritability calls for an adjustment to obtain an unbiased estimate \red{look up the details: \cite{heritab} Equation 9 and \cite{gcta} p.80}.
+\fi
+\fi
+%Furthermore, we assume that $N_T \ll p$, $N_T \ll r$, and $r^* \ll N_T$ with $r^*$ the dimension of the \red{covariance parameters $\mathbf{H}$, $\sigma_{\boldsymbol{\alpha}}^2$, and $\sigma_{\boldsymbol{\epsilon}}^2$}.
+
+% $\alpha$ additive gentic effects
+
+%Since we are interested in modelling multiple correlated traits, a multivariate modelling approach is required. 
+%Thus, 
+We consider a multivariate outcome $\mathbf{Y} \in \mathbb{R}^{N_T \times q}$ and the following multivariate model:
+\begin{align}
+  \mathbf{Y} = \mathbf{X}\mathbf{B} + \mathbf{Z}\mathbf{A} + \mathbf{E}, \label{eq:mmem}
+\end{align}
+where $\mathbf{B} = (\boldsymbol{\beta}_1 \ldots \boldsymbol{\beta}_q) \in \mathbb{R}^{p \times q}$. We assume that $\mathbf{A} = (\boldsymbol{\alpha}_1 \ldots \boldsymbol{\alpha}_q) \in \mathbb{R}^{r \times q}$ and $\mathbf{E} = (\boldsymbol{\epsilon}_1 \ldots \boldsymbol{\epsilon}_q) \in \mathbb{R}^{N_T \times q}$ each follow a matrix normal distribution:
+\begin{align*}
+  \mathbf{A} \sim \mathcal{MN}_{r \times q} (\mathbf{0}, \mathbf{H}, \mathbf{R_A}), 
+  \qquad
+  \mathbf{E} \sim \mathcal{MN}_{N_T \times q} (\mathbf{0}, \mathbf{I}_{N_T}, \mathbf{R_E}),
+\end{align*}
+where the location matrix $\mathbf{0}$ is a matrix of zeros of appropriate size, $r \times q$ and $N_T \times q$  for $\mathbf{A}$ and $\mathbf{E}$, respectively; the matrices $\mathbf{H} \in \mathbb{R}^{r \times r}$ and $\mathbf{I}_{N_T} \in \mathbb{R}^{N_T \times N_T}$ specify the row (among-individual and within-trait) covariances for each trait, and the scale matrices $\mathbf{R_A} \in \mathbb{R}^{q \times q}$ and $\mathbf{R_E} \in \mathbb{R}^{q \times q}$ model the systematic and residual covariances among traits within each individual.
+Without loss of generality, we assume that each random or fixed effect is standardised to have zero mean and unit variance, that is, unit Euclidean norm. Thus, the fixed intercept can be omitted. We do, however, keep the random intercept, which accounts for the minimal level of within-subject correlation.
+
+Based on model on the form \eqref{eq:mmem} different methods aim at estimating the covariance parameters $\mathbf{R_A}$ and $\mathbf{R_E}$, see, e.g., \red{cite{???}}. \red{We use these methods as reference when assessing the prediction abilities of our method, presented in the following.  }
+
+\iffalse
+We are interested in comparing the method to the correlation matrix estimated from a parametric model. 
+\red{Thus, we introduce the $k$-factor model, which is a multivariate technique that enable us to explain the relationships among $q$ observable random variables by $k$ ($\ll q$) latent random variables called common factors. The $k$-factor model assumes that some portion of the variation of each observed variable remains unaccounted for by the common factors. Thus, $r$ additional latent variables called unique factors are introduced, each of which accounts for this portion of variance of the corresponding observable variable. %(Mulaik, 2010)
+}
+\begin{align*}
+  \mathbf{Y} = \mathbf{X} + \mathbf{E}.
+\end{align*}
+Here $\mathbf{X}$ are assumed to follow a matrix normal distribution $\mathcal{N}_{N \times p} (\mathbf{M}, \mathbf{U}, \mathbf{V})$ where $\mathbf{M} \in \mathbb{R}^{N \times p}$ is is the mean or location matrix and the positive-definite scale matrices $\mathbf{U}\in\mathbb{R}_{+}^{N \times N}$ and $\mathbf{V}\in\mathbb{R}_{+}^{p \times p}$ specify the row covariances (among-individuals and within-trait) and the column (among-traits within-individual) covariances, respectively. \red{---?}
+\fi
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                  PRS                                      %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{EdGwas}                                             %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the \red{conceptual framework} of EdGwas.
+
+\red{We assume that we have $N$ observations of the multivariate outcome $\mathbf{Y}\in\mathbb{R}^{N \times q}$ and $p$ associated features $\mathbf{X}\in\mathbb{R}^{N \times p}$. }
+
+We are interested in identifying potential clusters of the $q$ traits that share some genetic component, and we wish to be able to predict the outcome for new data points. 
+Thus, we are interested in the pairwise ``relatedness'' of the traits while taking into account genetic variation. To account for this variation we consider PRSs, which marginally serves as a prediction for a trait when taking into account variation in multiple genetic variants. 
+\red{We are \red{interested} in PRSs, $\mathbf{Z}_l\in\mathbb{R}^{N}$, for a each trait $\mathbf{Y}_l$, $l=1,\ldots,q$, individually, %, that is, one PRS per trait, 
+and if an existing PRS for a trait has not been provided, we refer to, e.g., \citet{dudbridge} for a \red{comprehensive} \red{---}. \red{PRSs Gaussian per construction. Thus we assume that the collection of PRS have a multivariate Gaussian distribution with mean $\boldsymbol{\mu}$ and covariance $\boldsymbol{\Sigma}$.}}
+
+If we represent the system of the PRSs as an undirected graph $\mathcal{G} = (V, E)$, where the PRSs for a certain trait are represented by a node in the set $V$ of nodes, then an edge in the set $E$ of edges represents related pairs of nodes.% and defines a symmetric relation of the nodes, called the adjacency relation. Specifically, two nodes $\mathbf{Z}_1$ and $\mathbf{Z}_2$ are adjacent if the set $\{\mathbf{Z}_1, \mathbf{Z}_2\}$ constitutes an edge. 
+%The adjecency matrix representing an undirected graph is a symmetric matrix, the elements of which indicate whether pairs of nodes are adjecent or not. 
+%A graph with only nodes and no edges is called an edgeless graph.% \red{and corresponds to \red{independence} of all random variables\red{/nodes}?}.
+In a graphical model, which is a probabilistic model for which the conditional independence structure is encoded in a graph, nodes represent random variables, and the edges encode conditional independence relations among the associated nodes. 
+
+A connected component of a graph is a maximal sub-graph in which there is a path between any two nodes. Maximal refers to the largest possible sub-graph such that no other node in the super-graph can be added to the sub-graph while all the nodes in the sub-graph staying connected. 
+Identifying connected components of the graph $\mathcal{G}$ is one of the core functions of EdGwas:
+%we are interested in grouping the $q$ outcome components in $r\leq q$ clusters and do joint analysis within these clusters based on multivariate simple linear regression models on the form \eqref{eq:multlinreg}. 
+We suppose that we have a collection of $N$ multivariate Gaussian observations of dimension $q$.
+%We are interested in utilising the property that if the $ij$th component of the precision matrix, $\boldsymbol{\Sigma}^{-1}$, of a multivariate Gaussian random variable is zero, then the variables $i$ and $j$ are conditionally independent, given the other variables.  
+A useful property of the multivariate Gaussian distribution is that, for random variables $X$ and $Y$ and a set $\mathbf{U}$ of random variables, given $\mathbf{U}=\mathbf{u}$ the conditional %\red{(a.k.a. partial)} 
+correlation coefficient $\rho_{XY|\mathbf{u}}$ is zero if and only if $X$ and $Y$ are conditionally independent given $\mathbf{U}$ %, that is, $(X \Perp Y | \mathbf{U})$, 
+in the distribution. 
+We wish to exploit this property: By approximating the precision matrix of the PRSs and further sparsity, we are able to identify conditional independences, that is, edges and, thus, potential connected components. Since the connected components correspond to clusters of traits which share some genetic component\red{s} we are able to do joint analysis within clusters of related traits based on multivariate simple linear regression models on the form \eqref{eq:multlinreg}.
+
+%
+
+In pursuit of this goal we establish the notion of \emph{polygenic risk scores} and \emph{graphical lasso} in the next sections.
+
+
+\iffalse
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                  PRS                                      %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Polygenic risk scores}                                             %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+We assume that we have $N$ observations of the multivariate outcome $\mathbf{Y}\in\mathbb{R}^{N \times q}$ and $p$ associated features $\mathbf{X}\in\mathbb{R}^{N \times p}$. 
+%For computational reasons and to reduce multicollinearity we recommend centring quantitative features before the optimisation problem is solved, see \citet{tii}, such that each column has mean zero, that is, $\frac{1}{N}\sum_{i=1}^N \bX_{ij} = 0$. If the features are not measured in the same units, we also recommend scaling the features such that each column has unit variance, that is, $\frac{1}{N}\sum_{i=1}^N \bX_{ij}^2 = 1$.
+%If the features are categorical, they are assumed to be represented by dummy variables, and the pairwise interaction term is formed by multiplying the corresponding variables.
+%For the sake of simplicity we assume that the outcome values are centred, that is $\frac{1}{N}\sum_{i=1}^N \mathbf{Y}_{il}=0$, $l=1,\ldots,q$.
+
+We are interested in PRSs for each trait individually, that is, one PRS per trait, and, if an existing PRS for a trait has not been provided, then we suggest one of the following two ways of generating the PRSs from available data:
+\begin{itemize}
+  \item[a)] Split the data into a training set and a test set where the PRSs are obtained from the training set and subsequent analyses are performed on the test set;
+  \item[b)] Use all available data for constructing the PRS.
+\end{itemize}
+In practice, splitting data into training and tests sets requires a data set of a ``sufficient'' size. However, when data is large enough splitting data allows for unbiased evaluation of the model fit and decreases the risk of over-fitting.
+
+For the purpose of this paper we define for each single trait $\mathbf{Y}_l\in\mathbb{R}^{N}$, $l=1,\ldots,q$, the PRS, $\mathbf{Z}_{il}$, for individual $i=1,\ldots,N$ and SNPs $\mathbf{X}\in\mathbb{R}^{N \times p}$ by
+\begin{align*}
+  \mathbf{Z}_{il} = \sum_{j=1}^{s} \mathbf{X}_{ij} \mathbf{W}_{jl},
+\end{align*}  
+that is, a weighted sum of the $i$th observation of $s\leq p$ features $\mathbf{X}_{i}\in\mathbb{R}^{1\times s}$. We use the index $i$ to indicate rows of $\mathbf{X}$, and, thus, $\mathbf{X}_{i}$ is the $i$th row in the matrix of features. The index $j$ indicates the columns of $\mathbf{X}$. The weights $\mathbf{W}_{jl}$ are estimated using some form of regression analysis, e.g., the ordinary least squares estimates of the regression coefficients of \eqref{eq:unilinreg} derived for each outcome $l=1,\ldots,q$ and each features $j=1,\ldots,p$ separately, \emph{see, e.g.}, \citet{dudbridge}.
+
+%Despite PRSs being widely used in genomic or multi-omics data analyses as a detection mechanism for individual genetic markers, e.g., single-nucleotide polymorphisms (SNPs), it is not clear whether they are useful for detecting sets of genetic markers, which might influence multiple, simultaneously measured traits in a multivariate GWAS. % where $p \gg N$
+
+Our goal is to use the potential sparsity of the inverse correlation structure of a collection of PRSs for a multivariate outcome to cluster the outcome components which share some genetic component and to use as an approximation to the inverse correlation structure of the outcome estimated from a parametric model. Many popular methods for estimating sparse undirected graphical models rely on estimating a penalised maximum likelihood of the precision matrix and in the following we introduce one such method: the \emph{graphical lasso}.
+\fi
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                            Graphical lasso                                %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Graphical lasso}                                                   %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Since we are particularly interested in estimating a sparse version of the precision matrix of the PRSs, it makes sense to use the graphical lasso, proposed by \citet{glasso}, which impose an $\ell_1$ penalty for the estimation of the precision matrix, to increase its sparsity. 
+
+For computational reasons the PRSs should be centred before the graphical lasso optimisation problem is solved, such that each column has mean zero, that is, $\frac{1}{N}\sum_{i=1}^N \mathbf{Z}_{il} = 0$, $l=1,\ldots,q$. We also recommend scaling the PRSs such that each column has unit variance, that is, $\frac{1}{N}\sum_{i=1}^N \mathbf{Z}_{il}^2 = 1$, $l=1,\ldots,q$. Otherwise the lasso solutions depend on the scale since lasso puts constraints on the size of the coefficients associated to each PRS.
+%For the sake of simplicity we assume that each column of the outcome is centred before the optimisation problem is solved, that is $\frac{1}{N}\sum_{i=1}^N\mathbf{Y}_{il}=0$, $l=1,\ldots,q$.
+We denote by $\boldsymbol{\Sigma}_{\mathbf{Z}}$ the $q \times q$ positive-definite covariance matrix of the matrix, $\mathbf{Z}$, of PRSs. 
+From this we estimate a sparse precision matrix using a lasso ($\ell_1$) penalty via graphical lasso. For a precision matrix $\boldsymbol{\Sigma}_{\mathbf{Z}}^{-1}$ and an empirical correlation matrix $\mathbf{S}$ the graphical lasso maximises the penalised log-likelihood
+\begin{align*}
+  \log \left( \det \left( \boldsymbol{\Sigma}_{\mathbf{Z}}^{-1} \right) \right) - \trace \left( \mathbf{S} \boldsymbol{\Sigma}_{\mathbf{Z}}^{-1} \right) - \rho \lVert \boldsymbol{\Sigma}_{\mathbf{Z}}^{-1} \rVert_1
+\end{align*}
+over non-negative definite matrices $\boldsymbol{\Sigma}_{\mathbf{Z}}^{-1}$.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results}\label{sec:res}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We illustrate the utility of the EdGwas procedure presented in \autoref{sec:our} on both simulated and real data. The motivation for both sets of examples is to understand the performance of the procedure on two important problems in statistical genetics: simultaneously measured traits and pleiotropic genes. 
+First, we use simulations to assess the ability to cluster traits under different pleiotropy assumptions on the data generating process and the method. 
+Next, we assess the modelling performance of the procedure in terms of computing time by simulating different scenarios with genes that exhibit multiple phenotypic expression. \red{Here, the goal is to show that our method is faster than other methods implemented in R. }
+Finally, we assess the \red{clustering/selection/prediction abilities} of our method in a heterogeneous stock mouse data set, see \citet{mice}, from the Wellcome Trust Centre for Human Genetics (WTCCC). %large human data set from the Wellcome Trust Case Control Consortium (WTCCC).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Simulated data}\label{sec:simsim}
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+We wish to study the advantages and disadvantages of the procedure under the different scenarios of pleiotropy. 
+We compare our method to \red{\red{the usual GWAS}, which corresponds to the assumption of independent outcome components}. We also compare the method to GEMMA implemented in the \texttt{gemma} package where \red{---}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Sampling procedure}
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+Since the efficacy of a procedure depends on the true model generating the data we simulate \red{some-number} of different set-ups such that different scenarios are tried as the ground truth, and we apply our method to each scenario separately.
+
+The sampling procedure goes as follows: each sample is generated with $N=\Sexpr{N=100;N}$ observations of a quantitative outcome $\bY$ with $q=\Sexpr{q=10;q}$ components and $p=\Sexpr{p=1000;p}$ associated 3-way categorical features $\bX\in\{0,1,2\}^{\Sexpr{N}\times\Sexpr{p}}$. 
+%???????????????????????????
+%The main effects $\bX$ are sampled from the standard Gaussian distribution, and we assume that they are independent. 
+From the features we generate observations by $\bY=\bX\bB+\bE$, where $\bE$ is standard Gaussian noise matrix. We create a sparse problem by letting $\bB_{jl}=0$ for all $j=1,\ldots,p$ and $l=1,\ldots,q$, except for a few entries, for which different values are tried corresponding to different pleiotropic scenarios. 
+
+We fit the models using the R package \texttt{MESS} by \citet{MESS} and \texttt{glasso} by \citet{glassoR}. 
+The \texttt{mfastLmCpp} function fits a simple linear regression model and returns the regression coefficients from which we compute PRSs and their correlation matrix.
+The \texttt{glasso} function estimates a sparse precision matrix using a lasso ($\ell_1$) penalty. The function takes as input the correlation matrix and a (non-negative) regularisation parameter $\rho$ for lasso. We try different values in the interval from zero (corresponding to no regularisation) to \red{???}.
+From the fitted sparse precision matrix we assign the outcome to clusters (corresponding to the discoveries) according to blocks of zero and non-zero coefficients. In practice we use the \texttt{hclust} function from the \texttt{stats} package to do single linkage hierarchical clustering on a dissimilarity structure produced by the \texttt{dist} function. More specifically we use the \texttt{binary} distance measure on the sparse precision matrix of the PRSs. The rows of the matrix are regarded as binary bits, so non-zero elements are ‘on’ and zero elements are ‘off’. The distance is the proportion of bits in which only one is on amongst those in which at least one is on. Finally, we cut the resulting tree into groups using the \texttt{cutree} function and specifying the height where the tree should be cut as the minimum height of the tree, that is, zero. 
+
+Finally, to reduce the residual variation we repeat the sampling of the outcome as well as the using our procedure 100 times. 
+Thus, in total the method is evaluated on about \red{$\Sexpr{format(100*10*5, scientific=FALSE)}$} simulations.
+
+
+In order for us to assess the clustering ability of the method we use the \red{(adjusted)} rand index (RI), defined as
+
+
+\iffalse
+compare the performance of the methods we use the false-discovery rate (FDR) of the cluster \red{assignments}, defined as
+\begin{align*}
+  \text{FDR}=\frac{V^{(i)}}{V^{(i)}+S^{(i)}},
+\end{align*}
+where $V^{(i)}$ is the number of false discoveries of cluster \red{assignments} and $S^{(i)}$ is the number of true discoveries of cluster \red{assignments}.
+Please note that the false-discovery rates are defined in a manner that returns a zero if the number of false discoveries is zero. If there are no false discoveries nor true discoveries, the false-discovery rates are not provided. 
+\red{Example: If $\mathbf{Y}_1$ and $\mathbf{Y}_2$ are influenced by $\mathbf{X}_1$ and there are no other effects, $\mathbf{Y}_1$ and $\mathbf{Y}_2$ should be clustered, and all other eight traits, say, should be assigned individual clusters. If all traits are assigned the same cluster, we define the FDR to be 8/(8+2)=.8.}
+\fi
+
+
+We present the mean RI (solid lines) with corresponding point-wise approximate confidence intervals which we compute as the mean RI plus/minus twice the standard error of the mean. %We also present the average number of true cluster discoveries (dotted lines) conditioned on having discovered a true cluster assignment \red{We always have at least on true cluster assignment?}. Please note that the average number of false cluster discoveries, which complete the the picture is not displayed. 
+\red{The simulated data are generated such that the number of pleiotropic genes is $P$ and the number of traits influenced by each pleiotropic gene is $Q$, that is, the desired number of true cluster discoveries is \red{one, one, ten, or ten}, respectively. That is, the dotted lines should to be close to \red{one, one, ten, and ten, respectively}. Since we aim to control the expected proportion of interaction discoveries which are false, the desired value for the mean FDR is zero. That is, the solid lines should to be close to zero.}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Generating PRSs}
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+We split data into test and training sets, and generate PRSs from the training set. 
+
+In general, the weights used for the PRSs are estimated using some form of regression analysis, and since the total number of features $p$ is usually larger than the sample size $N$, one cannot use ordinary least squares (OLS) multiple regression. Various methodologies deal with this problem as well as how to generate the weights of the SNPs, $\mathbf{W}_{jl}$, and how to determine which $s\leq p$ features should be included. To keep the procedure simple we define, for each $l=1,\ldots,q$, $\mathbf{W}_{1l},\ldots,\mathbf{W}_{pl}$ as the marginal effects on the trait $\mathbf{Y}_l$, estimated separately from a univariate simple linear regression model on the form \eqref{eq:unilinreg}.
+
+This way, we have to do $p \times q$ separate univariate simple linear regression analyses but we avoid making dimensionality reduction of the features before computing the PRSs. 
+Thus, for each outcome component $\mathbf{Y}_{l} \in \mathbb{R}^{N \times 1}$, $l=1,\ldots,q$, and each feature $\mathbf{X}_j\in\mathbb{R}^{N \times 1}$, $j=1,\ldots,p$,  we estimate a univariate simple linear regression model on the form
+\begin{align*}
+  \mathbf{Y}_{l} = \mathbf{X}_{j} \mathbf{B}_{jl} + \mathbf{E}_{l},
+\end{align*}
+where the scalar $\mathbf{B}_{jl}\in\mathbb{R}$ is a regression coefficient and $\mathbf{E}_{l} \in \mathbb{R}^{N \times 1}$ is a vector of independent Gaussian random errors. For ease of notation and implementation, we store all regression coefficients in a $p \times q$ matrix $\mathbf{B}$ which is not to be mistaken for a matrix of coefficients from a multivariate multiple linear regression\red{!}
+
+
+Thus, for a multivariate outcome $\mathbf{Y}\in\mathbb{R}^{N \times q}$ we define the PRS for each outcome component $l=1,\ldots, q$ and each individual $i=1,\ldots,N$ by
+\begin{align*}
+  \mathbf{Z}_{il} = \sum_{j=1}^p \mathbf{X}_{ij} \hat{\mathbf{B}}_{jl},
+\end{align*}
+where $\hat{\mathbf{B}}_{jl}$ is the maximum likelihood estimate of $\mathbf{B}_{jl}$.
+%This way, we obtain a vector $\mathbf{Z}_l\in\mathbb{R}^{N}$ of $N$ PRSs for each outcome component $\mathbf{Y}_l$, $l=1,\ldots,q$.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{\red{Single pleiotropy}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the result of applying the EdGwas procedure when the data generating process \red{honours single pleiotropy} exemplified by genetic correlations. 
+Thus, we consider simulations for different effect sizes of the feature $\bX_1$ and different numbers of traits on which the pleiotropic gene has an effect, that is for different given non-zero values of $\bB_{1l}$, \red{$l\in\{1,\ldots,q\}$}.
+
+The \red{two} simulated data sets are generated such that the number of pleiotropic genes is one and the number of traits influenced by the pleiotropic gene is \red{two or five}, that is, the desired number of true cluster assignment discoveries is \red{19 or 16}, respectively. That is, the dotted lines should to be close to \red{19 or 16, respectively}. Since we aim to control the expected proportion of interaction discoveries which are false, the desired value for the mean FDR is zero. That is, the solid lines should to be close to zero.
+
+We compare the results to results obtained by applying \red{???}, that is by assuming no \red{???}. 
+
+
+In \autoref{fig:plotFDR} we show the mean FDR (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true cluster discoveries (dotted lines) as a function of $\rho$ when the number of traits influenced by $\mathbf{X}_1$ is two (left) and five (right). The lines are coloured according to the true value of $\mathbf{B}_{1,1:2}$ (left) and $\mathbf{1,1:5}$ (right). 
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{plotFDR}
+\caption{The data generating process honours \red{single pleiotropy}. Mean \emph{FDR} (solid lines) and average number of true clusters discoveries (dotted lines) as a function of $\rho$ when the pleiotropic gene influence two or five traits, corresponding to the two plots respectively. Lines are coloured according to the true value of the non-zero coefficient matrix $\bB$. Dotted lines should to be close to \red{???}; solid lines close to zero.}
+\label{fig:plotFDR}
+\end{figure}
+%
+We observe that \red{---}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{\red{Multiple pleiotropy}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the result of applying the EdGwas procedure when the data generating process \red{honours multiple pleiotropy}. 
+Thus, we consider simulations for different effect sizes of the features $\bX_1$ and $\mathbf{X}_2$ and different numbers of traits on which the pleiotropic genes have an effect, that is for different given non-zero values of $\bB_{1l}$ and $\bB_{2l}$, \red{$l\in\{1,\ldots,q\}$}.
+We compare the results to results obtained by applying \red{???}, that is by assuming no \red{???}. 
+
+
+In \autoref{fig:plotFDR2p} we show the mean FDR (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true cluster discoveries (dotted lines) as a function of $\rho$ when the number of traits influenced by $\mathbf{X}_1$ is two (left) and five (right). The lines are coloured according to the true value of $\mathbf{B}_{1,1:2}$ (left) and $\mathbf{1,1:5}$ (right). 
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{plotFDR2p}
+\caption{The data generating process honours \red{multiple pleiotropy}. Mean \emph{FDR} (solid lines) and average number of true clusters discoveries (dotted lines) as a function of $\rho$ when the pleiotropic genes influence two or five traits, corresponding to the two plots respectively. Lines are coloured according to the true value of the non-zero coefficient matrix $\bB$. Dotted lines should to be close to \red{???}; solid lines close to zero.}
+\label{fig:plotFDR2p}
+\end{figure}
+%
+We observe that \red{---}.
+
+
+
+
+
+
+
+<<eval=FALSE, echo=FALSE>>=
+source(file = "/home/ann-sophie/wip/data/mouse/gwasFunctions.R")
+
+
+
+####################
+# STEP 3/4
+####################
+
+clusY <- as.list(unique(mycl))
+for(l in unique(mycl)){
+  clusY[[l]] <- matrix(nrow = N, ncol = sum(mycl == l))
+  clusY[[l]] <- Y[, mycl == l]
+}
+fml <- as.formula(paste("clusY[[1]] ~", paste("PRS[, ", which(mycl == 1), "]", collapse = "+")))
+lm1 <- lm(fml)
+
+
+
+
+#####################
+# Random effects
+#####################
+library(lmer)
+fm1 <- lmer(Y ~ X)
+
+# https://gaopinghuang0.github.io/2018/02/09/exploratory-factor-analysis-notes-and-R-code#correlations-between-variables
+# First, scan the matrix for correlations greater than .3, then look for variables that only have a small number of correlations greater than this value. Then scan the correlation coefficients themselves and look for any greater than .9. If any are found then you should be aware that a problem could arise because of multicollinearity in the data.
+
+#Then, run Bartlett’s test on the correlation matrix by using cortest.bartlett() from psych package.
+bartCor <- cortest.bartlett(corY, n = nrow(Y))
+
+# For these data, Bartlett’s test is highly significant, Chisq(180) = 696.0971, p < .001, and therefore factor analysis is appropriate.
+
+#Then, we could get the determinant:
+det(corY)
+# This value is greater than the necessary value of 0.00001 (see section 17.5). As such, our determinant does not seem problematic.
+
+
+#Factor analysis of the data
+factors_data <- fa(r = corY, nfactors = 6)
+
+@
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Real data}\label{sec:real}
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+<<eval=FALSE, echo=FALSE>>=
+
+#####################
+# MICE
+#####################
+source(file = "/home/ann-sophie/wip/data/mouse/importMouseData.R")
+
+# Biochem
+biochem <- grep("Biochem", names(dataPheno))
+biochemDat <- dataPheno[,biochem]
+# Phenotype with interaction
+PHENO <- 12
+outcomeName <- names(dataPheno[,PHENO])
+
+snpBin <- t(genoData[snpsOfInterest,-(1:3)])[miceOfInterest, ] > 0
+colnames(snpBin) <- genoData$X1[snpsOfInterest]
+
+# Return a vector of outcome
+naYs <- which(is.na(dataPheno[miceOfInterest, outcomeName]))
+# Return a vector of outcome
+  if(length(naYs) > 0) {
+    y <- dataPheno[miceOfInterest, outcomeName][[1]][-naYs]
+  } else {
+    y <- dataPheno[miceOfInterest, outcomeName][[1]]
+  } 
+
+# Remove missing data
+  if(length(naYs) > 0) {
+    X0 <- snpBin[-naYs, ]
+  } else {
+    X0 <- snpBin
+  }
+  
+newSnpsOfInterest <- which(apply(X0, 2, var) != 0)
+X <- X0[, newSnpsOfInterest]
+rm(X0)
+
+set.seed(1)
+# GWAS results
+gwasResults <- gwasFct(x = X, y = y)
+
+plotPrep <-plotPrepFct(results = gwasResults$results, x = X, snpsOI = NULL,
+                       snpsOI2 = NULL, snpsOI3 = NULL, 
+                       snpsME = NULL, snpsI = NULL, bonfcor = gwasResults$bonfcor)   
+
+par(family = "serif", ps=11, bg=NA, mar = c(4,4,2,1), oma = c(0,0,0,0))
+plotFct(plotPrep, outcomeName, outer = FALSE, 
+        white = FALSE, beamer = FALSE)
+
+
+@
+
+
+
+\iffalse
+We apply our method to the heterogeneous stock of mice data set available from the Wellcome Trust Centre for Human Genetics (\url{http://mtweb.cs.ucl.ac.uk/mus/www/mouse/HS/index.shtml}). 
+
+The heterogeneous stock of mice consists of 1,904 individuals from 85 families, all descended from eight inbred progenitor strains, see \citet{mice}. 
+Please note that the aim of the example is to demonstrate proof of concept; the proposed method is used as a screening tool for identifying potential clusters of the traits. This way we can subsequently investigate the associations using more complicated nested models taking into account the the biological relationships of related subjects. 
+The data contains 129 quantitative traits which are classified into six broad categories including behaviour, diabetes, asthma, immunology, haematology, and biochemistry. 
+%\citet{mice} show that a genome-wide high-resolution mapping of multiple phenotypes can be achieved using the stock of genetically heterogeneous mice. 
+
+A total of 12,226 autosomal \textsc{snp}s were available for all mice. We omit individuals with missing phenotype, and, as \citet{bakr}, for ``individuals with missing genotypes, we imputed missing values by the mean genotype of that \textsc{snp} in their family. All polymorphic \textsc{snp}s with minor allele frequency above 1\% in the training data were used for prediction''.
+Furthermore, the \textsc{SNP}s are dichotomised, with `0' indicating the more common allele and `1' indicating the less common alleles.
+
+We are interested in \red{detecting clusters of traits which are influenced by a pleiotropic gene}.
+The procedure is applied with 10 repetitions of 10-fold cross validation. 
+\fi
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Discussion}\label{sec:dis}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{itemize}
+  \item No prior assumption on clusterings and cluster size
+  \item How to decide $\rho$?
+\end{itemize}
+
+In this paper, we have proposed a procedure, which uses PRSs and graphical lasso for clustering simultaneously measured traits sharing genetic features in preparation for fitting low-dimensional multivariate linear regression models.
+
+A key advantage of our framework is that \red{there are no prior assumptions on the cluster structure or cluster sizes} and \red{---} computing time compared to \red{---}. On the contrary, the computing time is considerably reduced and is highly satisfactory even for fairly large data. 
+
+To understand the consequence of a wrong \red{cluster assignment} we simulated data sets with different pleiotropic structures and \red{???}. %As expected, assuming weak or strong hierarchy when the truth is anti-hierarchy (and vice versa) predominantly results in false discoveries of interactions, as does assuming strong hierarchy when the truth is weak hierarchy. Assuming weak hierarchy when the truth is strong hierarchy, for the most part, results in the true interaction being discovered but with many false discoveries blurring the picture. In any case, it seems that, under the right hierarchical restrictions, the cross-validated choices of the penalty parameter succeed in detecting the true interaction but also include too many variables.
+
+To understand the consequence of not identifying clusters of traits we compared our method to the \red{mvlmm} under the assumption of \red{no clusters of / all dependent traits} and found that, regardless of the true cluster structure, the \red{mvlmm} tends to \red{???}. 
+
+We conclude that the consequence of a wrong clustering is \red{???}, whereas the consequence of no cluster assumption is \red{an immense amount of false discoveries}. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                              EL Bib                                       %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliographystyleonline{dinat}
+\bibliographyonline{/home/ann-sophie/wip/latex/web}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                 Bib                                       %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{apalike}
+\bibliography{/home/ann-sophie/wip/latex/litteratur}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<<eval=FALSE, echo=FALSE>>=
+library(epiDisplay)
+data(BP)
+des(BP)
+
+Y1 <- BP$sbp[!is.na(BP$saltadd)]
+Y2 <- BP$dbp[!is.na(BP$saltadd)]
+X <- BP$saltadd[!is.na(BP$saltadd)]
+
+trainData <- data.frame(Y1 = Y1[1:60],
+                       Y2 = Y2[1:60],
+                       X = X[1:60])
+testData <- data.frame(Y1 = Y1[61:80],
+                       Y2 = Y2[61:80],
+                       X = X[61:80])
+
+width <- 5.47 #11.69-1.4-1 #8.27-1-1.8
+height <- (5.47+5.47/7)/2.5
+
+
+par(family = "serif", mar=c(4,4,2,2), bg=NA) 
+layout(matrix(c(1,2), nrow = 1), widths = c(3,3))
+
+plot(x = X, y = Y1,
+     border = 1, frame = FALSE,
+     xlab = expression(X), ylab = expression(Y[1])
+     )
+plot(x = X, y = Y2,
+     border = 2, frame = FALSE,
+     xlab = expression(X), ylab = expression(Y[2])
+     )
+
+
+
+mlm1 <- lm(cbind(Y1, Y2) ~ X, data = trainData)
+summary(mlm1)
+
+lm1 <- lm(Y1 ~ X, data = trainData)
+summary(lm1)
+lm2 <- lm(Y2 ~ X, data = trainData)
+summary(lm2)
+
+# Instead of one residual standard error, we get two:
+sigma(mlm1)  
+sigma(lm1)
+sigma(lm2)
+# Again these are all identical to what we get by running separate models for each response. The similarity ends, however, with the variance-covariance matrix of the model coefficients. We don’t reproduce the output here because of the size, but we encourage you to view it for yourself:
+vcov(mlm1)
+# The main takeaway is that the coefficients from both models covary. That covariance needs to be taken into account when determining if a predictor is jointly contributing to both models. For example, the effects of PR and DIAP seem borderline. They appear significant for TOT but less so for AMI. But it’s not enough to eyeball the results from the two separate regressions! We need to formally test for their inclusion. And that test involves the covariances between the coefficients in both models.
+
+# Determining whether or not to include predictors in a multivariate multiple regression requires the use of multivariate test statistics. These are often taught in the context of MANOVA, or multivariate analysis of variance. Again the term “multivariate” here refers to multiple responses or dependent variables. This means we use modified hypothesis tests to determine whether a predictor contributes to a model.
+
+# The easiest way to do this is to use the Anova() or Manova() functions in the car package (Fox and Weisberg, 2011), like so:
+
+library(car)
+Anova(mlm1)
+
+plot(x = trainData$X, y = trainData$Y1,
+                 bty = "n", #axes = FALSE, 
+                 #xlab = expression(X[1]), ylab = "E[y]", 
+                 type = "b", pch = c(18,20), 
+                 legend = FALSE)
+axis(side = 1, at = 1:2, labels = 0:1)
+axis(side = 2, at = c(4,7), labels = c(4,7))
+
+
+##############
+pred.mlm <- function(object, newdata, level=0.95, 
+                     interval = c("confidence", "prediction")){
+  form <- as.formula(paste("~",as.character(formula(object))[3]))
+  xnew <- model.matrix(form, newdata)
+  fit <- predict(object, newdata)
+  Y <- model.frame(object)[,1]
+  X <- model.matrix(object)
+  n <- nrow(Y)
+  m <- ncol(Y)
+  p <- ncol(X) - 1
+  sigmas <- colSums((Y - object$fitted.values)^2) / (n - p - 1)
+  fit.var <- diag(xnew %*% tcrossprod(solve(crossprod(X)), xnew))
+  if(interval[1]=="prediction") fit.var <- fit.var + 1
+  const <- qf(level, df1=m, df2=n-p-m) * m * (n - p - 1) / (n - p - m)
+  vmat <- (n/(n-p-1)) * outer(fit.var, sigmas)
+  lwr <- fit - sqrt(const) * sqrt(vmat)
+  upr <- fit + sqrt(const) * sqrt(vmat)
+  if(nrow(xnew)==1L){
+    ci <- rbind(fit, lwr, upr)
+    rownames(ci) <- c("fit", "lwr", "upr")
+    } else {
+      ci <- array(0, dim=c(nrow(xnew), m, 3))
+      dimnames(ci) <- list(1:nrow(xnew), colnames(Y), c("fit", "lwr", "upr") )
+      ci[,,1] <- fit
+      ci[,,2] <- lwr
+      ci[,,3] <- upr
+      }
+  ci
+}
+
+# confidence interval
+newdata <- data.frame(Y1 = testData$Y1, Y2 = testData$Y2, X = "yes")
+predMlm <- pred.mlm(mlm1, newdata)
+
+plot(predMlm[,,2][,1])
+
+
+@

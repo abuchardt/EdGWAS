@@ -1,0 +1,221 @@
+rm(list=ls())
+gc()
+
+#library(xtable)
+library(tidyverse)
+library(magrittr)
+library(MESS)
+library(MASS)
+library(glasso)
+#library(car)
+#library(fossil)
+library(profvis)
+
+library(RColorBrewer)
+coul = brewer.pal(8, "Dark2") 
+coul = colorRampPalette(coul)(15)[-c(2,4,7)]
+palette(coul)
+
+library(EdGwas)
+
+randIndex <- function(clus1, clus2) {
+  a <- sum(clus1[upper.tri(clus1)] == 0 & clus2[upper.tri(clus2)] == 0, na.rm = TRUE)
+  b <- sum(clus1[upper.tri(clus1)] == 1 & clus2[upper.tri(clus2)] == 1, na.rm = TRUE)
+  c <- sum(clus1[upper.tri(clus1)] == 0 & clus2[upper.tri(clus2)] == 1, na.rm = TRUE)
+  d <- sum(clus1[upper.tri(clus1)] == 1 & clus2[upper.tri(clus2)] == 0, na.rm = TRUE)
+  
+  RI <- (a + b)/(a + b + c + d)
+  
+  list(RI = RI)
+}
+
+createB <- function(p, q, b1, b2, b3, b4) {
+  B <- list()
+  #
+  B[[1]] <- matrix(0, nrow = p, ncol = q)
+  #
+  B[[2]] <- matrix(1, nrow = p, ncol = q)
+  #
+  B[[3]] <- matrix(0, nrow = p, ncol = q)
+  B[[3]][1, 1:2] <- b1 
+  B[[4]] <- matrix(0, nrow = p, ncol = q)
+  B[[4]][1, 1:2] <- b2 
+  B[[5]] <- matrix(0, nrow = p, ncol = q)
+  B[[5]][1, 1:2] <- b3
+  B[[6]] <- matrix(0, nrow = p, ncol = q)
+  B[[6]][1, 1:2] <- b4
+  #
+  B[[7]] <- matrix(0, nrow = p, ncol = q)
+  B[[7]][1, 1:5] <- b1 
+  B[[8]] <- matrix(0, nrow = p, ncol = q)
+  B[[8]][1, 1:5] <- b2
+  B[[9]] <- matrix(0, nrow = p, ncol = q)
+  B[[9]][1, 1:5] <- b3
+  B[[10]] <- matrix(0, nrow = p, ncol = q)
+  B[[10]][1, 1:5] <- b4
+  #
+  B[[11]] <- matrix(0, nrow = p, ncol = q)
+  B[[11]][1, 1:2] <- b1 
+  B[[11]][2, 3:4] <- b1 
+  B[[12]] <- matrix(0, nrow = p, ncol = q)
+  B[[12]][1, 1:2] <- b2 
+  B[[12]][2, 3:4] <- b2
+  B[[13]] <- matrix(0, nrow = p, ncol = q)
+  B[[13]][1, 1:2] <- b3
+  B[[13]][2, 3:4] <- b3
+  B[[14]] <- matrix(0, nrow = p, ncol = q)
+  B[[14]][1, 1:2] <- b4
+  B[[14]][2, 3:4] <- b4
+  #
+  B[[15]] <- matrix(0, nrow = p, ncol = q)
+  B[[15]][1, 1:4] <- b1
+  B[[15]][2, 5:8] <- b1
+  B[[16]] <- matrix(0, nrow = p, ncol = q)
+  B[[16]][1, 1:4] <- b2
+  B[[16]][2, 5:8] <- b2
+  B[[17]] <- matrix(0, nrow = p, ncol = q)
+  B[[17]][1, 1:4] <- b3
+  B[[17]][2, 5:8] <- b3
+  B[[18]] <- matrix(0, nrow = p, ncol = q)
+  B[[18]][1, 1:4] <- b4
+  B[[18]][2, 5:8] <- b4
+  #
+  B[[19]] <- matrix(0, nrow = p, ncol = q)
+  B[[19]][1, 1:2] <- b1 
+  B[[19]][2, 1:2] <- b1 
+  B[[20]] <- matrix(0, nrow = p, ncol = q)
+  B[[20]][1, 1:2] <- b2 
+  B[[20]][2, 1:2] <- b2
+  B[[21]] <- matrix(0, nrow = p, ncol = q)
+  B[[21]][1, 1:2] <- b3
+  B[[21]][2, 1:2] <- b3
+  B[[22]] <- matrix(0, nrow = p, ncol = q)
+  B[[22]][1, 1:2] <- b4
+  B[[22]][2, 1:2] <- b4
+  #
+  B[[23]] <- matrix(0, nrow = p, ncol = q)
+  B[[23]][1, 1] <- b2 
+  B[[23]][1, 2] <- b1 
+  B[[23]][2, 1] <- b1
+  B[[23]][2, 2] <- b2 
+  B[[24]] <- matrix(0, nrow = p, ncol = q)
+  B[[24]][1, 1] <- b3 
+  B[[24]][1, 2] <- b1 
+  B[[24]][2, 1] <- b1
+  B[[24]][2, 2] <- b3 
+  B[[25]] <- matrix(0, nrow = p, ncol = q)
+  B[[25]][1, 1] <- b4 
+  B[[25]][1, 2] <- b1 
+  B[[25]][2, 1] <- b1
+  B[[25]][2, 2] <- b4 
+  
+  B
+}
+
+createClus <- function(p, q) {
+  clus1 <- list()
+  #
+  clus1[[1]] <-  matrix(0, nrow = q, ncol = q) 
+  #
+  clus1[[2]] <-  matrix(1, nrow = q, ncol = q)
+  diag(clus1[[1]]) <- 0
+  #
+  clus1[[3]] <- matrix(0, nrow = q, ncol = q)
+  clus1[[3]][1:2, 1:2] <- 1
+  diag(clus1[[3]]) <- 0
+  clus1[[6]] <- clus1[[5]] <- clus1[[4]] <- clus1[[3]]
+  #
+  clus1[[7]] <- matrix(0, nrow = q, ncol = q)
+  clus1[[7]][1:5, 1:5] <- 1
+  diag(clus1[[7]]) <- 0
+  clus1[[10]] <- clus1[[9]] <- clus1[[8]] <- clus1[[7]]
+  #
+  clus1[[11]] <- matrix(0, nrow = q, ncol = q)
+  clus1[[11]][1:2, 1:2] <- 1
+  clus1[[11]][3:4, 3:4] <- 1
+  diag(clus1[[11]]) <- 0
+  clus1[[14]] <- clus1[[13]] <- clus1[[12]] <- clus1[[11]]
+  #
+  clus1[[15]] <- matrix(0, nrow = q, ncol = q)
+  clus1[[15]][1:4, 1:4] <- 1
+  clus1[[15]][5:8, 5:8] <- 1
+  diag(clus1[[15]]) <- 0
+  clus1[[19]] <- clus1[[18]] <- clus1[[17]] <- clus1[[16]] <- clus1[[15]]
+  clus1[[25]] <- clus1[[24]] <- clus1[[23]] <- clus1[[22]] <- clus1[[21]] <- clus1[[20]] <- clus1[[19]]
+  
+  clus1
+}
+
+
+
+simFun <- function(X, B, N, p, q, rho = NULL, REPS = 100, whichK = 1:length(B)) {
+  
+  meanRI <- list(NULL)
+  lRI <- list(NULL)
+  uRI <- list(NULL)
+  meanRhoSeq <- list(NULL)
+  cvfit <- list(NULL)
+  K <- length(whichK)
+  
+  for (k in whichK) {
+    
+    cat("k: ", k, "/", K)
+    
+    RI <- list(NULL)
+    rhoSeq <- list(NULL)
+    
+    for (reps in 1:REPS) {
+      
+      cat(".")
+      
+      SigmaE <- diag(x = 1, nrow = q, ncol = q)
+      #SigmaE <- diag(q)
+      #SigmaE[which(B[[k]] != 0, arr.ind = TRUE)[,2], which(B[[k]] != 0, arr.ind = TRUE)[,2]] <- 0.5
+      #diag(SigmaE) <- 1
+      
+      Y <- X %*% B[[k]] + mvrnorm(n = N, rep(0, q), SigmaE)
+      Y <- scale(Y)
+      
+      RI[[reps]] <- vector(mode = "numeric", length= REPS)
+      
+      pc <- edgwas(x = X, y = Y, rho = rho)
+      
+      adjMat <- pc$A
+      
+      RI[[reps]] <- sapply(seq_along(adjMat), FUN = function(j) randIndex(clus1[[k]], adjMat[[j]])$RI)
+      rhoSeq[[reps]] <- pc$rho
+      
+    }
+    
+    meanRI[[k]] <- colMeans(do.call(rbind, RI))
+    lRI[[k]] <- apply(do.call(rbind, RI), 2, quantile, prob = .025)
+    uRI[[k]] <- apply(do.call(rbind, RI), 2, quantile, prob = .975)
+    meanRhoSeq[[k]] <- colMeans(do.call(rbind, rhoSeq))
+    
+    cat("\n")
+  }
+   list(meanRI = meanRI, lRI = lRI, uRI = uRI, meanRhoSeq = meanRhoSeq)
+}
+
+
+######################################
+b1 <- 0.5
+b2 <- 1
+b3 <- 2
+b4 <- 5
+
+N <- 1000 #
+q <- 10 #
+p <- 5000
+
+set.seed(1)
+
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+
+B <- createB(p, q, b1, b2, b3, b4)
+clus1 <- createClus(p, q)
+
+sims <- simFun(X, B, N, p, q, rho = NULL, REPS = 200, whichK = c(1,2,3:6,11:14, 23:25))
+save(sims, file = "/home/ann-sophie/wip/noDisease/paper1/191203simsN1000q10p100reps100.RData")
+
+######################################

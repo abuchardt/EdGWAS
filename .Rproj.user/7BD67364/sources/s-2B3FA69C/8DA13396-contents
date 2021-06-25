@@ -1,0 +1,147 @@
+library(EdGwas)
+
+
+# Gaussian
+N <- 100 #
+q <- 9
+p <- 1000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1:2, 1:5] <- 1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 5)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit1.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit1.RData")
+plot(cvfit, which = 4) 
+par(mar = c(4.5,4,2,2), family = "serif", bg=NA)
+plot(cvfit, which = 1) 
+plot(cvfit, which = 3) 
+cvfit$edgwas.fit$A[[which(cvfit$rho == cvfit$rho.1se)]]
+cvfit$edgwas.fit$A[[which(cvfit$rho == cvfit$rho.min)]]
+
+
+
+
+# Gaussian
+N <- 200 #
+q <- 9
+p <- 2000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1:2, 1:5] <- 1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 5)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit2.RData")
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit2.RData")
+plot(cvfit, which = 4) 
+
+
+# Gaussian
+N <- 500 #
+q <- 9
+p <- 5000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1:2, 1:5] <- 1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 10)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit3.RData")
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit3.RData")
+plot(cvfit, which = 4) 
+
+
+# Gaussian
+N <- 500 #
+q <- 9
+p <- 5000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:5] <- 1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 10)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit4.RData")
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit4.RData")
+plot(cvfit, which = 4) 
+
+
+
+# Gaussian
+N <- 500 #
+q <- 9
+p <- 5000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:5] <- .5
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 10)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit5.RData")
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit5.RData")
+plot(cvfit, which = 4) 
+plot(cvfit, which = 3)
+cvfit$rho.min
+cvfit$rho.1se
+
+
+# Gaussian
+N <- 500 #
+q <- 9
+p <- 5000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1:2, 1:2] <- 1
+B[3:4, 3:4] <- 1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 10)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit6.RData")
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit6.RData")
+plot(cvfit, which=3)
+cvfit$rho.1se
+cvfit$rho.min
+
+
+
+
+
+
+# Gaussian
+N <- 500 #
+q <- 9
+p <- 5000 #
+set.seed(1)
+X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1:10, 1:2] <- .1
+Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+
+
+cvfit <- cv.edgwas(x = X, y = Y, rho = NULL, nfolds = 10)
+
+save(cvfit, file = "/home/ann-sophie/wip/noDisease/paper1/cvfit7.RData")
+load(file = "/home/ann-sophie/wip/noDisease/paper1/cvfit7.RData")
+plot(cvfit, which=3)
+cvfit$rho.1se
+cvfit$rho.min

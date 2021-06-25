@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1583076198026.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "99B70480",
+    "lastKnownWriteTime" : 1587476195,
+    "last_content_update" : 1587476195510,
+    "path" : "~/wip/R/edgwas/R/predict.edgwas.R",
+    "project_path" : "R/predict.edgwas.R",
+    "properties" : {
+        "cursorPosition" : "101,1",
+        "scrollLine" : "52",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

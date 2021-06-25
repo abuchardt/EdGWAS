@@ -1,0 +1,60 @@
+rm(list=ls())
+gc()
+
+#library(xtable)
+library(tidyverse)
+library(magrittr)
+library(MESS)
+library(MASS)
+library(glasso)
+#library(car)
+#library(fossil)
+library(profvis)
+
+library(RColorBrewer)
+coul = brewer.pal(8, "Dark2") 
+coul = colorRampPalette(coul)(15)[-c(2,4,7)]
+palette(coul)
+
+library(EdGwas)
+library(lme4)
+
+source("/home/ann-sophie/wip/noDisease/paper1/datasimpars.R")
+
+stderrlmer <- matrix(NA, nrow = length(whichK), ncol = q)
+stderrlm <- matrix(NA, nrow = length(whichK), ncol = q)
+
+set.seed(1)
+for (r in 1:R) {
+  cat("r: ", r, "/", R, "\n")
+  source("/home/ann-sophie/wip/noDisease/paper1/datasimsim.R")
+  for (k in seq(whichSim)) {
+    cat("k: ", k, "/", length(whichSim), " ")
+    y <- Y[[whichSim[k]]]
+    
+    # lmer
+    yVec <- as.vector(y)
+    g <- rep(1:nrow(y), q)
+    traitID <- as.factor(rep(1:q, each = nrow(y)))
+    psVec <- as.vector(PS[[whichSim[k]]]) 
+    fitlmer <- lmer(yVec ~ -1 + psVec:traitID + traitID + (1 | g))
+    idx <- grep("psVec", rownames(summary(fitlmer)$coef))
+    stderrlmer[k, ] <- summary(fitlmer)$coef[idx, 2]
+    
+    # EdGWAS
+    # cvfit <- edgwas(x = PS[[whichSim[k]]], y = y, model = "fgls", logrho = TRUE)
+    # cvfit <- edgwas(x = PS[[whichSim[k]]], y = y, model = "lmer", logrho = TRUE)
+    
+    #lm
+    for(l in 1:q) {
+      fitlm <- lm(y[, l] ~ PS[[whichSim[k]]][, l])
+      stderrlm[k,] <- summary(fitlm)$coef[, 2]
+    }
+    
+  }
+  stderrList <- list(stderrlmer = stderrlmer, stderrlm = stderrlm)
+  save(stderrList, 
+       file = paste0("/home/ann-sophie/wip/noDisease/paper1/simulations/200401lmerStdErrN",
+                     N, "q", q, "p", p, "r", r, ".RData"))
+  cat("\n")
+}

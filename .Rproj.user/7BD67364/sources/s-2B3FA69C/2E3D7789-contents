@@ -1,0 +1,698 @@
+rm(list=ls())
+gc()
+
+library(xtable)
+library(tidyverse)
+library(magrittr)
+library(MESS)
+library(MASS)
+library(glasso)
+library(car)
+library(fossil)
+
+library(RColorBrewer)
+coul = brewer.pal(8, "Dark2") 
+coul = colorRampPalette(coul)(15)[-c(2,4,7)]
+palette(coul)
+
+library(prs)
+library(lme4)
+
+width <- 5.47 #11.69-1.4-1 #8.27-1-1.8
+height <- (5.47+5.47/7)*.5
+
+#####################
+# 1 pleiotropic gene
+#####################
+N <- 100
+q <- 10
+p <- 1000
+allCombi <- combn(1:q, 2) 
+
+
+K <- 100 # reps
+J <- 20 # length(rho)
+L <- 3 # length(Bval)
+Bval <- seq(.5, 2.5, length.out = L)
+rho <- c(0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 50, 100); J = length(rho) #seq(0.0001, 1, length.out = J)
+
+l <- 3
+j <- 5
+i <- 1
+
+
+randIdx <- function (group1, group2) {
+  
+  if (is.vector(group1)) {
+    x <- abs(sapply(group1, function(x) x - group1))
+    # abs(outer(group1, group1, "-"))
+    x[x > 1] <- 1
+  } else {
+    x <- group1
+  }
+  if (is.vector(group2)) {
+    y <- abs(sapply(group2, function(x) x - group2))
+    y[y > 1] <- 1
+  } else {
+    y <- group2
+  }
+  
+  a <- sum(x[upper.tri(x)] == 0 & y[upper.tri(y)] == 0, na.rm = TRUE)
+  b <- sum(x[upper.tri(x)] == 1 & y[upper.tri(y)] == 1, na.rm = TRUE)
+  c <- sum(x[upper.tri(x)] == 0 & y[upper.tri(y)] == 1, na.rm = TRUE)
+  d <- sum(x[upper.tri(x)] == 1 & y[upper.tri(y)] == 0, na.rm = TRUE)
+  
+  RI <- (a + b)/(a + b + c + d)
+  nagree <- a + b
+  ndisag <- c + d
+  
+  list(RI = RI, nagree = nagree, ndisag = ndisag)
+
+}
+
+
+simFct <- function(xidx, yidx, trueClus, truePrec) {
+  
+  set.seed(1)
+  RI <- list(NULL)
+  RIas <- list(NULL)
+  nagr <- list(NULL)
+  aRI <- list(NULL)
+  nclust <- list(NULL)
+  
+  for (l in 1:L) {
+    
+    cat("l = ", l, "\n")
+    X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+    SigmaE <- diag(x = 1, nrow = q, ncol = q)
+    B <- matrix(0, nrow = p, ncol = q)
+    
+    for (k in 1:length(xidx)) 
+      B[xidx[[k]], yidx[[k]]] <- Bval[l]
+    
+    RI[[l]] <- list(NULL)
+    RIas[[l]] <- list(NULL)
+    nagr[[l]] <- list(NULL)
+    aRI[[l]] <- list(NULL)
+    nclust[[l]] <- list(NULL)
+    
+    for (j in 1:J) {
+      
+      RI[[l]][[j]] <- vector(mode = "numeric", length= K)
+      RIas[[l]][[j]] <- vector(mode = "numeric", length= K)
+      nagr[[l]][[j]] <- vector(mode = "numeric", length= K)
+      aRI[[l]][[j]] <- vector(mode = "numeric", length= K)
+      nclust[[l]][[j]] <- vector(mode = "numeric", length= K)
+      
+      for (i in 1:K) {
+        
+        YY <- X %*% B + mvrnorm(n = N, rep(0, q), SigmaE)
+        Y <- scale(YY)
+        pc <- prsclust(x = X, y = Y, rho = rho[j])
+        #clusPC <- as.matrix(pc$dist)[lower.tri(as.matrix(pc$dist), diag = FALSE)]
+        
+        #RI[[l]][[j]][i] <- rand.index(trueClus, pc$clust)
+        #RIas[[l]][[j]][i] <- randIdx(trueClus, pc$clust)$RI
+        #agr[[l]][[j]][i] <- randIdx(trueClus, pc$clust)$nagree
+        #aRI[[l]][[j]][i] <- adj.rand.index(trueClus, pc$clust)
+        #nclust[[l]][[j]][i] <- length(unique(pc$clust))
+        
+        #adjm <- pc$adjMat
+        #adjm[abs(adjm) > 0] <- 1
+        adjm <- pc$dist
+        adjm[abs(adjm) > 0.0000001] <- 1
+        
+        #RI[[l]][[j]][i] <- rand.index(trueClus, adjm) #pc$adjMat)
+        RIas[[l]][[j]][i] <- randIdx(trueClus, adjm)$RI #pc$adjMat)$RI
+        nagr[[l]][[j]][i] <- randIdx(trueClus, adjm)$nagree #pc$adjMat)$nagree
+        #aRI[[l]][[j]][i] <- adj.rand.index(trueClus, adjm) #pc$adjMat)
+        nclust[[l]][[j]][i] <- length(unique(adjm)) #pc$adjMat))
+      }
+    }
+  }
+  list(RI = RI, aRI = aRI, RIas = RIas, nclust = nclust, nagr = nagr) 
+}
+
+
+
+#####################################################
+# PLOT FUNCTION
+#####################################################
+
+plotFct <- function(rho, ciL = NULL, ciU = NULL, fdr1 = NULL, sem1 = NULL, 
+                    s1 = NULL, fdr2 = NULL, ciL2 = NULL, ciU2 = NULL, sem2, s2 = NULL, ylab = "FDR") {
+  
+  layout(matrix(c(1,2,3,3), nrow = 2, byrow = TRUE), heights = c(3,1))
+  
+  par(mar = c(4,4,1,1), family = "serif", bg=NA) 
+  plot(rho, fdr1[[1]], bty = "n", 
+       type = "n", col = 1,
+       xlab = bquote(rho), ylab = ylab, ylim = c(0,1))
+  for (l in 1:L) {
+    #mFDR5 <- sapply(1:J, function(j) mean(FDR5[[l]][[j]]))
+    lines(rho, fdr1[[l]], col = l)
+    if(length(ciU) == 0) {
+      ciu <- fdr1[[l]] + 2*sem1[[l]]
+      cil <- fdr1[[l]] - 2*sem1[[l]]
+    } else {
+      ciu <- ciU[[l]]
+      cil <- ciL[[l]]
+    }
+    polygon(c(rho, rev(rho)), 
+            c(ciu,rev(cil)),
+            col= adjustcolor(l, alpha.f = 0.51), border=NA)  
+    lines(rho, fdr1[[l]], lty=1, col=l)  
+    if (length(s1) != 0) lines(rho, s1[[l]]/q, lty=3, lwd=2, col=l)
+  }
+  
+  if (length(fdr2) != 0) {
+    par(mar = c(4,1,1,4), family = "serif", bg=NA) 
+    plot(rho, fdr2[[1]], bty = "n", 
+         type = "n", yaxt = "n",
+         xlab = bquote(rho), ylab = "FDR", ylim = c(0,1))
+    for (l in 1:L) {
+      lines(rho, fdr2[[l]], col = l)
+      if(length(ciU) == 0) {
+        ciu5 <- fdr1[[l]] + 2*sem2[[l]]
+        cil5 <- fdr1[[l]] - 2*sem2[[l]]
+      } else {
+        ciu5 <- ciU2[[l]]
+        cil5 <- ciL2[[l]]
+      }
+      polygon(c(rho, rev(rho)), 
+              c(ciu5,rev(cil5)),
+              col= adjustcolor(l, alpha.f = 0.51), border=NA)  
+      lines(rho, fdr2[[l]], lty=1, col=l)  
+      if (length(s2) != 0) lines(rho, s2[[l]]/q, lty=3, lwd=2, col=l)
+      #lines(rho, mV5[[l]], lty=4, lwd=2, col=l)
+    }
+    #axis(side = 4, at = seq(0, 1, length.out = 3), labels = seq(0, q, length.out = 3))
+    #mtext(side = 4, text = "S", line = 3)
+    
+    par(mar = c(0,0,0,0))
+    plot.new()
+    legend("center", title = "B", ncol = 5,
+           legend = sapply(1:L, function(l) bquote(.(Bval[l]))), 
+           col = 1:L, bty = "n", lty = 1)
+  }
+  
+}
+
+
+#####################################################
+# 
+#####################################################
+
+lablY <-1:q
+
+sim0 <- simFct(xidx = list(1, 2), yidx = list(1, 2), trueClus = lablY, truePrec = clusY)
+
+save(sim0, file = "/home/ann-sophie/wip/noDisease/paper1/RI0.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RI0.RData")
+
+
+sim00 <- simFct(xidx = list(1, 2, 3, 4, 5), yidx = list(1, 2, 3, 4, 5), trueClus = lablY, truePrec = clusY)
+
+save(sim00, file = "/home/ann-sophie/wip/noDisease/paper1/RI00.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RI00.RData")
+
+
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim0$RI[[l]][[j]])))
+mRIas <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim0$RIas[[l]][[j]])))
+lapply(1:5, FUN = function(x) mRIa[[x]] - mRIas[[x]])
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim0$nagr[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim00$RI[[l]][[j]])))
+mRIbas <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim00$RIas[[l]][[j]])))
+lapply(1:5, FUN = function(x) mRIb[[x]] - mRIbas[[x]])
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim00$nagr[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRIC1.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIa, sem1 = SEMa, fdr2 = mRIb, sem2 = SEMb, ylab = "RI") 
+
+dev.off()
+
+
+
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim0$RI[[l]][[j]])))
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim0$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim00$RI[[l]][[j]])))
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim00$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRIC0.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIa, sem1 = SEMa, fdr2 = mRIb, sem2 = SEMb, ylab = "RI") 
+
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#####################################################
+# ONE CLUSTER, 2 INFLUENCED BY 1
+#####################################################
+
+lablY <- c(rep(1,2), 2:(q-2+1))
+
+
+clusYY <- matrix(1, ncol = q, nrow = q)
+clusYY[1:2,1:2] <- 0
+diag(clusYY) <- 0
+clusY <- clusYY#[lower.tri(clusYY, diag = FALSE)]
+
+sim1 <- simFct(xidx = list(1), yidx = list(1:2), trueClus = clusY, truePrec = clusY)
+
+if(FALSE) {
+  par(mfrow = c(1,1), mar = c(4,4,2,2))
+  nClus <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$nagr[[l]][[j]])))
+  plot(1, xlim = range(rho), ylim = range(unlist(nClus)), bty = "n", type = "n",
+       xlab = expression(rho))
+  for (l in 1:L) {
+    lines(rho, nClus[[l]], col = l)  
+  }
+}
+
+save(sim1, file = "/home/ann-sophie/wip/noDisease/paper1/RIa.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RIa.RData")
+
+#####################################################
+# ONE CLUSTER, 5 INFLUENCED BY 1
+#####################################################
+
+lablY <- c(rep(1,5), 2:(q-5+1))
+
+clusYY <- matrix(1, ncol = q, nrow = q)
+clusYY[1:5,1:5] <- 0
+diag(clusYY) <- 0
+clusY <- clusYY
+
+sim2 <- simFct(xidx = list(1), yidx = list(1:5), trueClus = clusY, truePrec = clusY)
+
+save(sim2, file = "/home/ann-sophie/wip/noDisease/paper1/RIb.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RIb.RData")
+
+#####################################################
+# PLOT (ONE CLUSTER)
+#####################################################
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$RI[[l]][[j]])))
+ciLa <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim1$RI[[l]][[j]], prob = .025)))
+ciUa <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim1$RI[[l]][[j]], prob = .975)))
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim1$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim2$RI[[l]][[j]])))
+ciLb <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim2$RI[[l]][[j]], prob = .025)))
+ciUb <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim2$RI[[l]][[j]], prob = .975)))
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim2$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRIC1.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIa, ciL = ciLa, ciU = ciUa, 
+        fdr2 = mRIb, ciL2 = ciLb, ciU2 = ciUb, sem2 = SEMb, ylab = "RI") 
+
+dev.off()
+
+
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$RIas[[l]][[j]])))
+ciLa <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim1$RIas[[l]][[j]], prob = .025)))
+ciUa <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim1$RIas[[l]][[j]], prob = .975)))
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim1$RIas[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim2$RIas[[l]][[j]])))
+ciLb <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim2$RIas[[l]][[j]], prob = .025)))
+ciUb <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(sim2$RIas[[l]][[j]], prob = .975)))
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim2$RIas[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRIC1.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = log10(rho), fdr1 = mRIa, ciL = ciLa, ciU = ciUa, 
+        fdr2 = mRIb, ciL2 = ciLb, ciU2 = ciUb, sem2 = SEMb, ylab = "RI") 
+plotFct(rho = rho, fdr1 = mRIa, ciL = ciLa, ciU = ciUa, 
+        fdr2 = mRIb, ciL2 = ciLb, ciU2 = ciUb, sem2 = SEMb, ylab = "RI") 
+
+dev.off()
+
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$aRI[[l]][[j]])))
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim1$aRI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim2$aRI[[l]][[j]])))
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim2$aRI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotaRIC1.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIa, sem1 = SEMa, fdr2 = mRIb, sem2 = SEMb, ylab = "aRI") 
+
+dev.off()
+
+
+
+
+
+
+
+
+#####################################################
+# TWO CLUSTERS, 2 INFLUENCED BY 1 IN EACH
+#####################################################
+
+lablY <- c(rep(1,2), rep(2,2), 3:(q-(2+2)+2))
+
+clusYY <- matrix(1, ncol = q, nrow = q)
+clusYY[1,1:2] <- 0
+clusYY[2,3:4] <- 0
+diag(clusYY) <- 0
+clusY <- clusYY
+
+simC2a <- simFct(xidx = list(1,2), yidx = list(1:2, 3:4), trueClus = clusY, truePrec = clusY)
+
+save(simC2a, file = "/home/ann-sophie/wip/noDisease/paper1/RIC2a.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RIC2a.RData")
+
+#####################################################
+# TWO CLUSTERS, 4 INFLUENCED BY 1 IN EACH
+#####################################################
+
+lablY <- c(rep(1,4), rep(2,4), 3:(q-(4+4)+2))
+
+clusYY <- matrix(1, ncol = q, nrow = q)
+clusYY[1,1:4] <- 0
+clusYY[2,5:8] <- 0
+diag(clusYY) <- 0
+clusY <- clusYY
+
+simC2b <- simFct(xidx = list(1,2), yidx = list(1:4, 5:8), trueClus = clusY, truePrec = clusY)
+
+save(simC2b, file = "/home/ann-sophie/wip/noDisease/paper1/RIC2b.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RIC2b.RData")
+
+#####################################################
+# PLOT (TWO CLUSTERS)
+#####################################################
+
+
+mRIC2a <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC2a$RI[[l]][[j]])))
+ciLa <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(simC2a$RI[[l]][[j]], prob = .025)))
+ciUa <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(simC2a$RI[[l]][[j]], prob = .975)))
+SEMC2a <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC2a$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIC2b <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC2b$RI[[l]][[j]])))
+ciLb <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(simC2b$RI[[l]][[j]], prob = .025)))
+ciUb <- lapply(1:L, function(l) sapply(1:J, function(j) quantile(simC2b$RI[[l]][[j]], prob = .975)))
+SEMC2b <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC2b$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRIC2.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIC2a, ciL = ciLa, ciU = ciUa, 
+        fdr2 = mRIC2b, ciL2 = ciLb, ciU2 = ciUb, sem2 = SEMb, ylab = "RI") 
+
+dev.off()
+
+
+
+mRIC2a <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC2a$aRI[[l]][[j]])))
+SEMC2a <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC2a$aRI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIC2b <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC2b$aRI[[l]][[j]])))
+SEMC2b <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC2b$aRI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotaRIC2.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIC2a, sem1 = SEMC2a, fdr2 = mRIC2b, sem2 = SEMC2b, ylab = "RI") 
+
+dev.off()
+
+
+
+
+
+
+
+#####################################################
+# ONE CLUSTER, 2 INFLUENCED BY THE SAME 2 ("X-type")
+#####################################################
+
+#clusYY <- matrix(1, ncol = q, nrow = q)
+#clusYY[1:2,1:2] <- 0
+#diag(clusYY) <- 0
+#clusY <- clusYY[lower.tri(clusYY, diag = FALSE)]
+
+lablY <- c(rep(1,2), 2:(q-2+1))
+
+simC1Xa <- simFct(xidx = list(1, 2), yidx = list(1:2, 1:2), trueClus = lablY, truePrec = clusY)
+
+save(simC1Xa, file = "/home/ann-sophie/wip/noDisease/paper1/RIC1Xa.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RIC1Xa.RData")
+
+#####################################################
+# ONE CLUSTER, 5 INFLUENCED BY THE SAME 2 ("X-type")
+#####################################################
+
+lablY <- c(rep(1,5), 2:(q-5+1))
+
+simC1Xb <- simFct(xidx = list(1, 2), yidx = list(1:5, 1:5), trueClus = lablY, truePrec = clusY)
+
+save(simC1Xb, file = "/home/ann-sophie/wip/noDisease/paper1/RIC1Xb.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/RIC1Xb.RData")
+
+#####################################################
+# PLOT (ONE CLUSTER)
+#####################################################
+
+
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC1Xa$RI[[l]][[j]])))
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC1Xa$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC1Xb$RI[[l]][[j]])))
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC1Xb$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRIC1Xa.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIa, sem1 = SEMa, fdr2 = mRIb, sem2 = SEMb, ylab = "RI") 
+
+dev.off()
+
+
+mRIa <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC1Xa$aRI[[l]][[j]])))
+SEMa <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC1Xa$aRI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mRIb <- lapply(1:L, function(l) sapply(1:J, function(j) mean(simC1Xb$aRI[[l]][[j]])))
+SEMb <- lapply(1:L, function(l) sapply(1:J, function(j) sd(simC1Xb$aRI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotaRIC1X.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mRIa, sem1 = SEMa, fdr2 = mRIb, sem2 = SEMb, ylab = "aRI") 
+
+dev.off()
+
+
+
+
+
+
+
+#V5 <- list(NULL)
+#S5 <- list(NULL)
+#FDR5 <- list(NULL)
+
+#clusY <- c(rep(1,5), 2:(q-5+1))
+
+#clusYY <- matrix(1, ncol = q, nrow = q)
+#clusYY[1:5,1:5] <- 0
+#diag(clusYY) <- 0
+#clusY <- clusYY[lower.tri(clusYY, diag = FALSE)]
+
+clusY <- c(rep(1,5), 2:(q-5+1))
+
+for(l in 1:L) {
+  cat("l = ", l, "\n")
+  X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+  SigmaE <- diag(x = 1, nrow = q, ncol = q)
+  B <- matrix(0, nrow = p, ncol = q)
+  B[1, 1:5] <- Bval[l]
+  V5[[l]] <- list(NULL)
+  S5[[l]] <- list(NULL)
+  FDR5[[l]] <- list(NULL)
+  for(j in 1:J) {
+    V5[[l]][[j]] <- vector(mode = "numeric", length= K)
+    S5[[l]][[j]] <- vector(mode = "numeric", length= K)
+    FDR5[[l]][[j]] <- vector(mode = "numeric", length= K)
+    for(i in 1:K) {
+      YY <- X %*% B + mvrnorm(n = N, rep(0, q), SigmaE)
+      Y <- scale(YY)
+      pc <- prsclust(x = X, y = Y, rho = rho[j])
+      clusPC <- as.matrix(pc$dist)[lower.tri(as.matrix(pc$dist), diag = FALSE)]
+      V5[[l]][[j]][i] <- sum(clusY != clusPC) # sum(pc$clust != clusY)
+      S5[[l]][[j]][i] <- sum(clusY == clusPC) # sum(pc$clust == clusY)
+      FDR5[[l]][[j]][i] <- V5[[l]][[j]][i]/(V5[[l]][[j]][i]+S5[[l]][[j]][i])
+    }
+  }
+}
+save(V5, S5, FDR5, file = "/home/ann-sophie/wip/noDisease/paper1/FDR5.RData")
+
+load(file = "/home/ann-sophie/wip/noDisease/paper1/FDR5.RData")
+
+library(igraph)
+get.adjacency(graph.edgelist(as.matrix(pc$clust), directed=FALSE))
+
+
+
+
+
+#####################################################
+# PLOT (ONE CLUSTER)
+#####################################################
+
+
+
+mFDR <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$FDR[[l]][[j]])))
+SEM <- lapply(1:L, function(l) sapply(1:J, function(j) sd(sim1$RI[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mS <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$S[[l]][[j]], na.rm = TRUE)))
+mV <- lapply(1:L, function(l) sapply(1:J, function(j) mean(sim1$V[[l]][[j]], na.rm = TRUE)))
+
+mFDR5 <- lapply(1:L, function(l) sapply(1:J, function(j) mean(FDR5[[l]][[j]])))
+SEM5 <- lapply(1:L, function(l) sapply(1:J, function(j) sd(FDR5[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mS5 <- lapply(1:L, function(l) sapply(1:J, function(j) mean(S5[[l]][[j]], na.rm = TRUE)))
+mV5 <- lapply(1:L, function(l) sapply(1:J, function(j) mean(V5[[l]][[j]], na.rm = TRUE)))
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotFDR.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mFDR, sem1 = SEM, s1 = mS, 
+        fdr2 = mFDR5, sem2 = SEM5, s2 = mS5) 
+
+dev.off()
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotRI.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mFDR, sem1 = SEM, s1 = mS, 
+        fdr2 = mRI, sem2 = SEM, s2 = mS) 
+
+dev.off()
+
+
+#####################################################
+# TWO CLUSTER, 2 INFLUENCED
+#####################################################
+
+V2p <- list(NULL)
+S2p <- list(NULL)
+FDR2p <- list(NULL)
+clusY2p <- c(rep(1,2), rep(2,2), 3:(q-(2+2)+2))
+for(l in 1:L) {
+  cat("l = ", l, "\n")
+  X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+  SigmaE <- diag(x = 1, nrow = q, ncol = q)
+  B <- matrix(0, nrow = p, ncol = q)
+  B[1, 1:2] <- Bval[l]
+  B[2, 3:4] <- Bval[l]
+  V2p[[l]] <- list(NULL)
+  S2p[[l]] <- list(NULL)
+  FDR2p[[l]] <- list(NULL)
+  for(j in 1:J) {
+    V2p[[l]][[j]] <- vector(mode = "numeric", length= K)
+    S2p[[l]][[j]] <- vector(mode = "numeric", length= K)
+    FDR2p[[l]][[j]] <- vector(mode = "numeric", length= K)
+    for(i in 1:K) {
+      YY <- X %*% B + mvrnorm(n = N, rep(0, q), SigmaE)
+      Y <- scale(YY)
+      pc <- prsclust(x = X, y = Y, rho = rho[j])
+      V2p[[l]][[j]][i] <- sum(pc$clust != clusY2p)
+      S2p[[l]][[j]][i] <- sum(pc$clust == clusY2p)
+      FDR2p[[l]][[j]][i] <- V2p[[l]][[j]][i]/(V2p[[l]][[j]][i]+S2p[[l]][[j]][i])
+    }
+  }
+}
+save(V2p, S2p, FDR2p, file = "/home/ann-sophie/wip/noDisease/paper1/FDR2p.RData")
+
+
+#####################################################
+# TWO CLUSTERs, 5 INFLUENCED
+#####################################################
+
+V2p5 <- list(NULL)
+S2p5 <- list(NULL)
+FDR2p5 <- list(NULL)
+clusY2p5 <- c(rep(1,5), rep(2,5), 3:(q-(5+5)+2))
+for(l in 1:L) {
+  cat("l = ", l, "\n")
+  X <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+  SigmaE <- diag(x = 1, nrow = q, ncol = q)
+  B <- matrix(0, nrow = p, ncol = q)
+  B[1, 1:5] <- Bval[l]
+  B[2, 6:10] <- Bval[l]
+  V2p5[[l]] <- list(NULL)
+  S2p5[[l]] <- list(NULL)
+  FDR2p5[[l]] <- list(NULL)
+  for(j in 1:J) {
+    V2p5[[l]][[j]] <- vector(mode = "numeric", length= K)
+    S2p5[[l]][[j]] <- vector(mode = "numeric", length= K)
+    FDR2p5[[l]][[j]] <- vector(mode = "numeric", length= K)
+    for(i in 1:K) {
+      YY <- X %*% B + mvrnorm(n = N, rep(0, q), SigmaE)
+      Y <- scale(YY)
+      pc <- prsclust(x = X, y = Y, rho = rho[j])
+      V2p5[[l]][[j]][i] <- sum(pc$clust != clusY2p5)
+      S2p5[[l]][[j]][i] <- sum(pc$clust == clusY2p5)
+      FDR2p5[[l]][[j]][i] <- V2p5[[l]][[j]][i]/(V2p5[[l]][[j]][i]+S2p5[[l]][[j]][i])
+    }
+  }
+}
+save(V2p5, S2p5, FDR2p5, file = "/home/ann-sophie/wip/noDisease/paper1/FDR2p5.RData")
+
+
+
+#####################################################
+# PLOT (TWO CLUSTERs)
+#####################################################
+
+mFDR2p <- lapply(1:L, function(l) sapply(1:J, function(j) mean(FDR2p[[l]][[j]])))
+SEM2p <- lapply(1:L, function(l) sapply(1:J, function(j) sd(FDR2p[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mS2p <- lapply(1:L, function(l) sapply(1:J, function(j) mean(S2p[[l]][[j]], na.rm = TRUE)))
+mV2p <- lapply(1:L, function(l) sapply(1:J, function(j) mean(V2p[[l]][[j]], na.rm = TRUE)))
+
+mFDR2p5 <- lapply(1:L, function(l) sapply(1:J, function(j) mean(FDR2p5[[l]][[j]])))
+SEM2p5 <- lapply(1:L, function(l) sapply(1:J, function(j) sd(FDR2p5[[l]][[j]], na.rm = TRUE)/sqrt(K)))
+mS2p5 <- lapply(1:L, function(l) sapply(1:J, function(j) mean(S2p5[[l]][[j]], na.rm = TRUE)))
+mV2p5 <- lapply(1:L, function(l) sapply(1:J, function(j) mean(V2p5[[l]][[j]], na.rm = TRUE)))
+
+
+pdf("/home/ann-sophie/wip/noDisease/paper1/plotFDR2p.pdf",
+    width=width, height=height, pointsize = 12)
+
+plotFct(rho = rho, fdr1 = mFDR2p, sem1 = SEM2p, s1 = mS2p, 
+        fdr2 = mFDR2p5, sem2 = SEM2p5, s2 = mS2p5) 
+
+dev.off()
+
+
+

@@ -40,8 +40,8 @@ x <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 y <- x \%*\% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 ps <- x \%*\% beta
 ###
-pc <- cv.edgwas(ps[-(1:100), ], y[-(1:100), ])
-newy <- predict(pc, newPS = ps[(1:100), ], rho = max(pc$rho))[[1]]
+pc <- edgwas(ps[-(1:100), ], y[-(1:100), ])
+newy <- predict(pc, newPS = ps[(1:100), ], rho = pc$rho.min)[[1]]
 
 mean((newy[,1] - y[1:100, 1])^2)
 pss <- ps[-(1:100), 1]

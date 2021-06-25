@@ -1,0 +1,270 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[danish,UKenglish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\linespread{1.6}
+
+\PassOptionsToPackage{usenames}{color}
+\PassOptionsToPackage{usenames,dvipsnames}{xcolor}
+
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[headheight=120pt, top=1.2in, bottom=1in, left=1in, right=1in]{geometry}
+
+%\graphicspath{{/home/ann-sophie/wip/lasso/interactions/}}
+\input{/home/ann-sophie/wip/latex/preamble}
+\usepackage[nomarkers, notablist, nofiglist]{endfloat}
+
+\usepackage{txfonts}
+
+\usepackage{multibib}
+\newcites{online}{Electronic References}
+
+\input{/home/ann-sophie/wip/latex/commands}
+
+\usepackage[many]{tcolorbox}
+\newtcolorbox{cross}{blank,breakable,parbox=false,
+  overlay={\draw[Gray,line width=5pt] (interior.south west)--(interior.north east);
+    \draw[Gray,line width=5pt] (interior.north west)--(interior.south east);}}
+    
+\usepackage[color]{changebar}
+\setlength\changebarsep{10pt}
+\setlength\changebarwidth{3pt}
+\cbcolor{myred}
+\newcommand{\Blue}[1]{\textcolor{myblue}{#1}}
+
+\newcommand{\ifdr}{\text{i}\textsc{fdr}}
+
+\newlength{\xdescwd}
+\usepackage{environ}
+\makeatletter
+\NewEnviron{xdesc}{%
+  \setbox0=\vbox{\hbadness=\@M \global\xdescwd=0pt
+    \def\item[##1]{%
+      \settowidth\@tempdima{\textbf{##1}}%
+      \ifdim\@tempdima>\xdescwd \global\xdescwd=\@tempdima\fi}
+  \BODY}
+  \begin{description}[font=\bf,leftmargin=\dimexpr\xdescwd+.5em\relax,
+    labelindent=0pt,labelsep=.5em, topsep=12pt,
+    labelwidth=\xdescwd,align=left]\BODY\end{description}}
+\makeatother
+
+\externaldocument[main-]{/home/ann-sophie/wip/submissions/bioinformatics/iArticleShort}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%               Titel                    %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Identifying Interactions via Hierarchical Lasso Regularisation} %
+\author{Ann-Sophie Buchardt and Claus Thorn Ekstrøm \\ \small Section of Biostatistics, Department of Public Health \\ \small University of Copenhagen}
+\date{}%
+
+\begin{document}
+
+
+
+\appendix
+\section{Supplementary Material}\label{app:sup}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Sampling procedure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The sampling procedure goes as follows: each sample is generated with $N=200$ observations $\by$ and $p=600$ associated 3-way categorical features $\bX\in\{0,1,2\}^{200 \times 600}$ resulting in 1225 pairwise interactions. 
+%???????????????????????????
+%The main effects $\bX$ are sampled from the standard Gaussian distribution, and we assume that they are independent. 
+Where applicable, there are one or two main effects and/or one interaction in the data generating process. From the features we generate observations by $\by=\bX\bbeta+\bepsilon$, where $\bepsilon$ is standard Gaussian noise vector. We create a sparse problem by letting $\bbeta_j=0$ for all $j=1,\ldots,p$, except for $\bbeta_1,\bbeta_2,\bbeta_3$, and $\bTheta_{12}$, for which different values are tried. 
+
+We fit the models in the two-step procedure using the R package \texttt{glmnet} by \citet{glmnetR}. The penalty parameters $\lambda_1$ and $\lambda_2$ are determined by cross-validation, which we perform using the \texttt{cv.glmnet()} function with 10 folds. 
+The function fits a lasso penalised linear model using the \texttt{glmnet()} function, which it runs 10+1 times; the first to get a sequence of values for the penalty parameter, and then the remainder to compute the fit with each of the folds omitted. 
+The cross-validated error is accumulated, and the mean cross-validated error (\textsc{cvm}) and standard deviation over the folds are computed. 
+Since the folds in \texttt{cv.glmnet()} are selected at random the results of the procedure are random, and we reduce this randomness by running \texttt{cv.glmnet()} $R=10$ times and average the error curves. That is, from each iteration, we obtain a sequence of values for the penalty parameter and a corresponding sequence of values for the \textsc{cvm}. 
+From the cross-validation fit we choose the set of non-zero coefficients (corresponding to the discoveries) at the value of the penalty parameter corresponding to the minimum point-wise average of the \textsc{cvm}.
+Finally, to reduce the residual variation we repeat the sampling of the outcome as well as the fitting using the two-step procedure $B=100$ times. 
+Thus, in total the four methods (the two-step procedure assuming either strong, weak, or anti-hierarchy and the usual lasso) are evaluated on about 33000 simulations each.
+
+In order for us to compare the performance of the methods we use the false-discovery rate of the interactions (\ifdr), defined as
+\begin{align*}
+  \ifdr=\frac{V^{(i)}}{V^{(i)}+S^{(i)}},
+\end{align*}
+where $V^{(i)}$ is the number of false discoveries of interactions and $S^{(i)}$ is the number of true discoveries of interactions.
+Please note that the false-discovery rates are defined in a manner that returns a zero if the number of false discoveries is zero. If there are no false discoveries nor true discoveries, the false-discovery rates are not provided. 
+
+Under the assumption of no hierarchy, $B=100$ repetitions of the simulations and the model fitting (the $R=10$ times repeated application of the usual lasso with 10-fold cross-validation to the joint set of main effects and interactions) is a very lengthy operation. Thus, we are interested in eliminating features from the problem to reduce the computational load, and, to this end, we apply a \emph{screening rule}, which, according to \citet{sls}, has the potential to speed up the computation considerably while still providing the exact numerical solution. In particular, we apply the \emph{global strong rule}, which discards feature $j$ whenever 
+\begin{align*}
+  \left|\bX_j^{\top}\by\right|<2\lambda-\lambda_{\max},
+\end{align*}
+where $\lambda_{\max}=\max_j|\langle\bX_j,\by\rangle|$, that is the variable which has the largest absolute inner-product. Finally, we apply the usual lasso on the features left after screening using the \texttt{glmnet} package. The penalty parameter is determined by 10-fold cross-validation, which we perform using the \texttt{cv.glmnet()} function.
+
+We present the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals which we compute as the mean \ifdr{} plus/minus twice the standard error of the mean. We also present the average number of true interaction discoveries (dotted lines) conditioned on having discovered a true interaction. Please note that the average number of false interaction discoveries, which complete the the picture is not displayed. 
+Since the simulated data honour strong, weak, \mbox{anti-,} or no hierarchy with one interaction effect, the desired number of true interaction discoveries is one. That is, the dotted lines should to be close to one. Since we aim to control the expected proportion of interaction discoveries which are false, the desired value for the mean \ifdr{} is zero. That is, the solid lines should to be close to zero.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Strong Hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours strong hierarchy. 
+Thus, we consider simulations for different effect sizes of the features $\bX_1$ and $\bX_2$ and the interaction between the two, that is for different given non-zero values of $\bbeta_1$, $\bbeta_2$, and $\bTheta_{12}$.
+We compare the results to results obtained by applying the usual lasso on the joint set of main effects and interactions, that is by assuming no hierarchy. 
+
+
+In \autoref{fig:plotsB12S} we show the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. The lines are coloured according to the true value of $\bTheta_{12}$. 
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet12bet1Strong100600200}%{catplotblackbet12bet1Strong100600200}
+\caption{The data generating process honours strong hierarchy. Mean \emph{\ifdr{}} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. Lines are coloured according to the true value, $\bTheta_{12}$, of the interaction. Dotted lines should to be close to one; solid lines close to zero.}
+\label{fig:plotsB12S}
+\end{figure}
+%
+We observe that under the strong hierarchical model, \hs, the mean \ifdr{} is close to zero for all values of the two true main effects and all values of the true interaction. This indicates that when we do discover an interaction it is likely to be the correct one. We also observe that the average number of true interaction discoveries is almost constant in the true main effects and increases as the size of the true interactions increases. It appears that whenever the value of the true interaction is greater than or equal to 1, it is discovered more than 80 \% of the times.
+%
+Under the weak hierarchical model, \hw, both the mean \ifdr{} and the average number of true interaction discoveries are almost constant in the true main effects and increase as the size of the true interactions increases. It appears that the mean \ifdr{} is over 70 \% regardless of the value of the two true main effects and the true interaction. This suggests that more false interactions are discovered when the hierarchical restriction is relaxed. The relaxation does, however, not affect the average number of true interaction discoveries much.
+%
+Under the anti-hierarchical model, \ha, the mean \ifdr{} is approximately 100 \% regardless of the value of the two true main effects and the true interaction. 
+The average number of true interaction discoveries is almost constant in the true main effects and increases as the size of the true interaction increases, but it does not exceed 85 \%. Thus, many interactions are discovered, as was expected under \ha{}, but the correct interaction is very rarely included. 
+%
+Under the assumption of no hierarchy, \hn, the mean \ifdr{} is greater than 80 \% regardless of the value of the two true main effects and the true interaction. 
+However, the number of true discoveries is one whenever the true size of the interaction is greater than 0.2 or the values of the two true main effects is greater than 0.4, and we conclude that, when disregarding the hierarchical structure, the one true interaction is likely to be among the many false discoveries.
+The values of the mean \ifdr{} are very close when the size of the true interaction is greater than 0.2. Therefore, only the solid line representing the mean \ifdr{} for $\bTheta_{12}=2.2$ is visible.
+The values of the average number of true interaction discoveries are very close when the size of the true interaction is greater than 0.2. Therefore, only the orange dotted line representing the average number of true interaction discoveries for $\bTheta_{12}=2.2$ is visible.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Weak Hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours weak hierarchy. 
+Thus, we consider simulations for different effects of the feature $\bX_1$ and the interaction between the $\bX_1$ and $\bX_2$, that is for different given non-zero values of $\bbeta_1$ and $\bTheta_{12}$.
+We compare the results to results obtained by assuming no hierarchy. 
+
+In \autoref{fig:plotsB12W} we show the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. The lines are coloured according to the true value of $\bTheta_{12}$. 
+%
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet12bet1Weak100600200}%{catplotblackbet12bet1Weak100600200}
+\caption{The data generating process honours weak hierarchy. Mean \ifdr{} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. Lines are coloured according to the true value, $\bTheta_{12}$, of the interaction. Dotted lines should to be close to one; solid lines close to zero.}
+\label{fig:plotsB12W}
+\end{figure}
+
+We observe that the results are very similar to those obtained when the data generating process honours strong hierarchy: under \hs{} the mean \ifdr{} is approximately zero for all values of the two true main effects and all values of the true interaction and whenever the value of the true interaction is greater than 1, it is discovered more than 75 \% of the times.
+%
+More false interactions are discovered when the hierarchical restriction is relaxed and \hw{} is assumed, and the average number of true interaction discoveries is decreased a bit in the value of the true interaction.
+%
+Under \ha{} and \hn{} the results are almost identical to those obtained when the data generating process honours strong hierarchy.
+
+
+We see that whether the data generating process honours strong or weak hierarchy with one interaction, the procedure performs very similarly under \hs{} and \hw{}. Essentially, the only difference is, that under \hs{} the process is likely to discover one more false interaction when the data generating process honours weak hierarchy instead of strong hierarchy.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Anti-Hierarchy}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours anti-hierarchy. 
+Thus, we consider simulations for different effects of the feature $\bX_3$ and the interaction between the $\bX_1$ and $\bX_2$, that is for different given non-zero values of $\bbeta_3$ and $\bTheta_{12}$.
+We compare the results to results obtained by applying the usual lasso on the joint set of main effects and interactions. 
+
+In \autoref{fig:plotsB3} we show the mean \ifdr{} (solid lines) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted lines) as a function of $\bbeta_3$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. The lines are coloured according to the true value of $\bTheta_{12}$. 
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet12bet1Anti100600200}%{plotblackbet12bet1Anti100600200}
+\caption{The data generating process honours anti-hierarchy. Mean \ifdr{} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bbeta_1=\bbeta_2$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. Lines are coloured according to the true value, $\bTheta_{12}$, of the interaction.}
+\label{fig:plotsB3}
+\end{figure}
+
+We observe that the results are quite similar to those obtained when the data generating process honours strong and weak hierarchy: under \hs{} the mean \ifdr{} is approximately  zero for all values of the two true main effects and all values of the true interaction and whenever the value of the true interaction is greater than 1, it is discovered more than 70 \% of the times. We do, however, observe that the average number of true interaction discoveries is decreasing in the size of the true main effects, which agrees with the notion of anti-hierarchy being contrary to strong hierarchy.
+%
+More false interactions are discovered when the hierarchical restriction is relaxed and \hw{} is assumed, and the average number of true interaction discoveries is slightly reduced and, again, decreasing in the size of the true main effects.
+%
+Under \ha{} the mean \ifdr{} is approximately 100 \%, that is, mainly false interactions are discovered. The average number of true interaction discoveries decreases
+in the true main effects and increases as the size of the true interaction increases, but it does not exceed 80 \%. This is conform to our expectation.
+%
+Under \hn{} the one true interaction is likely to be among the many false discoveries.
+
+
+We see that even though assumptions \hs, \hw, and \hn{} violate the true data generating process, the procedure is still able to detect the true interaction.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Pure Interaction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+In this section we present the result of applying the two-step procedure under different hierarchical and anti-hierarchical assumptions when the data generating process honours the pure interaction set-up. 
+Thus, we consider simulations for different effects of the interaction between the $\bX_1$ and $\bX_2$, that is for different given non-zero values of $\bTheta_{12}$.
+We compare the results to results obtained by applying the usual lasso on the joint set of main effects and interactions. 
+
+In \autoref{fig:plotsPI} we show the mean \ifdr{} (solid line) with corresponding point-wise approximate confidence intervals and the average number of true interaction discoveries (dotted line) as a function of $\bTheta_{12}$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. 
+
+%
+\begin{figure}[!htb]
+\centering
+\includegraphics[width=\textwidth]{/home/ann-sophie/wip/lasso/interactions/PLOTblackbet1bet12PI100600200}%{plotblacknonebet12PI100600200}
+\caption{The data generating process honours the pure interaction set-up. Mean \ifdr{} (solid lines) and average number of true interaction discoveries (dotted lines) as a function of $\bTheta_{12}$ when the model is constrained by strong, weak, \mbox{anti-,} or no hierarchy, corresponding to the four plots respectively. }
+\label{fig:plotsPI}
+\end{figure}
+
+
+We observe that under \hs{} the mean \ifdr{} is 0 when the value of the true interaction is greater than 0.6. When the value of the true interaction is less than 0.6 the average number of true as well as false interaction discoveries is zero resulting in the mean \ifdr{} being undefined. The average number of true interaction discoveries is increasing in the size of the true interaction, and for values greater than 1, the true interaction is discovered more than 80 \% of the times.
+%
+Under \hw{} the mean \ifdr{} is, in general, greater than 80 \% and the average number of true interaction discoveries is increasing in the size of the true interaction, and for values greater than 1.2, the true interaction is discovered more than 80 \% of the times
+%
+Under \ha{} the mean \ifdr{} is approximately 100 \%. The average number of true interaction discoveries is increasing in the size of the true interaction, but only for values greater than 2.2 is the true interaction discovered more than 80 \% of the times 
+%
+Under \hn{} the mean \ifdr{} is greater than 80 \% and the average number of true interaction discoveries is 100 \% whenever the size of the true interaction is greater than 0.6. 
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                              EL Bib                                       %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliographystyleonline{dinat}
+\bibliographyonline{/home/ann-sophie/wip/latex/web}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                 Bib                                       %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{apalike}%{ama}
+\bibliography{/home/ann-sophie/wip/latex/litteratur}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                Tables                                     %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\processdelayedfloats 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                               Appendix                                    %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{A\arabic{figure}}
+\setcounter{table}{0}
+{\footnotesize
+\input{/home/ann-sophie/wip/data/mouse/tabMouseSnps}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{document}
+
+
+

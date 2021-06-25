@@ -1,0 +1,337 @@
+#' Cross-validation for edgwas
+#'
+#' Does k-fold cross-validation for edgwas, produces a plot, and returns a value for rho.
+#'
+#' @param x input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.
+#' @param y response matrix, of dimension nobs x nouts. Quantitative for family="gaussian". For family="binomial" should be either a factor with two levels, or a two-column matrix of counts or proportions (the second column is treated as the target class; for a factor, the last level in alphabetical order is the target class). For "binomial" if y is presented as a vector, it will be coerced into a factor.
+#' @param rho (Non-negative) optional user-supplied rho sequence; default is NULL, and EdGwas chooses its own sequence.
+#' @param nfolds number of folds - default is 10. Although nfolds can be as large as the sample size (leave-one-out CV), it is not recommended for large datasets. Smallest value allowable is nfolds=3.
+#' @param type.measure loss to use for cross-validation. Currently one option; the default is type.measure="mse", which uses the mean-squared error.
+#' @param ... Other arguments that can be passed to edgwas.
+#'
+#' @details The function runs edgwas nfolds+1 times; the first to get the rho sequence, and then the remainder to compute the fit with each of the folds omitted. The error is accumulated, and the average error and standard deviation over the folds is computed. Note that the results of cv.edgwas are random, since the folds are selected at random. Users can reduce this randomness by running cv.edgwas many times, and averaging the error curves.
+#'
+#' @return Cluster associations. \item{clust}{returns a vector with group memberships}#'
+#'
+#' @examples
+#'
+#' # Gaussian
+#' N <- 1000 #
+#' q <- 10 #
+#' p <- 500
+#' set.seed(1)
+#' x <- matrix(sample(0:2, N*p, replace=TRUE), nrow=N, ncol=p)
+#' x[,1] <- x[,5]
+#' x[,2] <- x[,5]
+#' x[,3] <- x[,5]
+#' x[,4] <- x[,5]
+#' B <- matrix(0, nrow = p, ncol = q)
+#' B[1, 1:5] <- 10
+#' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' #x <- y + rnorm(N * q, sd = 0.1)
+#'
+#' ###
+#' rho = NULL; nfolds = 10; type.measure = "mse"; nrho = ifelse(is.null(rho), 40, length(rho)); logrho = FALSE; rho.min.ratio = 10e-04
+#' pc <- cv.edgwas(x, y, trace = 1, logrho = TRUE)
+#'
+#' @export cv.edgwas
+#'
+cv.edgwas <- function(x, y, rho = NULL, nfolds = 10, type.measure = "mse",
+                      #penalty = c("ridge", "lasso"),
+                      trace = NULL,
+                      nrho = ifelse(is.null(rho), 40, length(rho)), logrho = FALSE,
+                      rho.min.ratio = 10e-04) {
+
+  #if (missing(type.measure)) {
+  #  type.measure <- "default"
+  #} else type.measure <- match.arg(type.measure)
+
+  #penalty <- match.arg(penalty)
+
+  if (!is.null(rho) && length(rho) < 2)
+    stop("Need more than one value of rho for cv.edgwas")
+
+  edgwas.call <- match.call(expand.dots = TRUE)
+  edgwas.call[[1]] <- as.name("edgwas")
+  edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
+  edgwas.object$call <- edgwas.call
+
+  if (nfolds < 3)
+    stop("nfolds must be bigger than 3; nfolds=10 recommended")
+
+  rho <- edgwas.object$rho
+  PRS <- edgwas.object$PRS
+  P <- edgwas.object$P
+
+  fun <- paste("cv", type.measure, sep = ".")
+  cvstuff <- do.call(fun, list(rho = rho, PRS = PRS, y = y, nfolds = nfolds,
+                               P = P,
+                               #penalty = penalty,
+                               type.measure = type.measure,
+                               trace = trace, logrho = logrho,
+                               rho.min.ratio = rho.min.ratio))
+  cvm <- cvstuff$cvm
+  cvsd <- cvstuff$cvsd
+  cvmO <- cvstuff$cvmO
+  cvsdO <- cvstuff$cvsdO
+  cvname <- names(cvstuff$type.measure)
+
+  rhoMin <- rho[which.min(cvm)]
+  idx <- max(which(rev(cvm[seq(which.min(cvm))]) < cvm[which.min(cvm)] + cvsd[which.min(cvm)]))
+  rho1se <- rev(rho[seq(which.min(cvm))])[idx]
+
+  out <- list(rho = rho, cvm = cvm, cvsd = cvsd, cvmO = cvmO, cvsdO = cvsdO,
+              cvmN = cvstuff$cvmN, cvmI = cvstuff$cvmI,
+              cvup = cvm + cvsd,
+              cvlo = cvm - cvsd,
+              name = cvname,
+              rho.min = rhoMin,
+              rho.1se = rho1se,
+              edgwas.fit = edgwas.object)
+  class(out) <- "cv.edgwas"
+  out
+}
+
+# Cross-validation
+cv.mse <- function(rho, PRS, y, nfolds, P = P, #penalty,
+                   type.measure, trace,
+                   logrho, rho.min.ratio) {
+
+  nrho <- length(rho)
+  foldid <- sample(rep(seq(nfolds), length = nrow(y)))
+
+  predmatO <- vector(mode = "list", length = nrho)
+  predmatO <- lapply(predmatO, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+  predmat <- vector(mode = "list", length = nrho)
+  predmat <- lapply(predmat, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+
+  cvrawO <- vector(mode = "list", length = nrho)
+  cvrawO <- lapply(cvrawO, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+  cvraw <- vector(mode = "list", length = nrho)
+  cvraw <- lapply(cvraw, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+  cvrawN <- vector(mode = "list", length = nrho)
+  cvrawN <- lapply(cvrawN, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+  cvrawIn <- vector(mode = "list", length = nrho)
+  cvrawIn <- lapply(cvrawIn, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+
+  cvmFold <- vector(mode = "list", length = nrho)
+  cvmFold <- lapply(cvmFold, FUN = function(l) matrix(NA, nfolds, ncol(y)))
+
+  for (i in 1:nfolds) {
+
+    if(!is.null(trace)) cat("i: ", i, ", ")
+
+    fold <- foldid == i
+
+    if (is.matrix(y)) {
+      yTrainO <- y[!fold, ]
+      yTestO <- y[fold, ]
+    } else {
+      yTrainO <- y[!fold]
+      yTestO <- y[fold]
+    }
+
+    xTrainO <- PRS[!fold, ]
+    xTestO <- PRS[fold, ]
+
+    outlist <- edgwas(x = xTrainO, y = yTrainO, rho = NULL, nrho, logrho, rho.min.ratio)
+
+    for (j in seq(nrho)) {
+
+      # Rotate Y and PRSs (to obtain independent Y)
+      w <- expm::sqrtm(outlist$P[[j]]) ## qxq
+      yTrainIn <- yTrainO %*% w
+      xTrainIn <- xTrainO %*% w
+      yTestIn <- yTestO %*% w
+      xTestIn <- xTestO %*% w
+
+      fitM <- lm(yTrainIn ~ xTrainIn)
+      if (sum(is.na(coef(fitM))) > 0) {
+        predsN <- matrix(1, nrow = nrow(xTestO), ncol = 1) %*% coef(fitM)[1, ]
+      } else predsN <- cbind(1, xTestO) %*% coef(fitM)
+      cvrawN[[j]][fold, ] <- (predsN - yTestO)^2
+
+      if(!is.null(trace)) cat(".")
+
+      #fit <- list(NULL)
+      for (l in seq(ncol(y))) {
+
+        fitIn <- lm(yTrainIn[,l] ~ xTrainIn[,l])
+
+        Sigma11 <- outlist$Sigma[[j]][l, l] # 1 x 1
+        Sigma12 <- outlist$Sigma[[j]][l, -l, drop = FALSE] # 1 x (q-1)
+        Sigma21 <- outlist$Sigma[[j]][-l, l, drop = FALSE] # (q-1) x 1
+        Sigma22I <- solve(outlist$Sigma[[j]][-l,-l]) # (q-1) x (q-1)#
+
+        # Update PRSs
+        xTrainUp <- (drop(Sigma12 %*% tcrossprod(Sigma22I, xTrainIn[, -l])) + xTrainIn[, l])
+        #xTrain <- (drop(Sigma12 %*% tcrossprod(Sigma22I, xTrainO[, -l])) + xTrainO[, l])
+
+        #W <- c(sqrt(Sigma11 - Sigma12 %*% Sigma22I %*% Sigma21))
+        #xTrain <- xTrainUp / W
+        ##yTrain <- (drop(Sigma12 %*% tcrossprod(Sigma22I, yTrainO[, -l])) +yTrainO[, l]) /W
+        #yTrain <- yTrainO[, l] / W
+
+        #xTrain <- drop(Sigma12 %*% tcrossprod(Sigma22I, xTrainO[, -l])) + xTrainO[, l]
+        #yTrain <- drop(Sigma12 %*% tcrossprod(Sigma22I, yTrainO[, -l])) + yTrainO[, l]
+
+        xTestUp <- drop(Sigma12 %*% tcrossprod(Sigma22I, xTestIn[, -l])) + xTestIn[, l]
+        #xTest <- drop(Sigma12 %*% tcrossprod(Sigma22I, xTestO[, -l])) + xTestO[, l]
+        #xTest <- (drop(Sigma12 %*% tcrossprod(Sigma22I, xTestO[, -l])) + xTestO[, l]) / W
+        #y2Test <- yTestO[, -l] # N x (q-1)
+        #yTest <- drop(Sigma12 %*% tcrossprod(Sigma22I, y2Test)) + yTestO[, l]
+        #yTest <- yTestO[, l] / W
+
+        fitO <- lm(yTrainO[,l] ~ xTrainO[,l])
+        fit <- lm(yTrainIn[,l] ~ xTrainUp)
+        #fit <- lm(yTrain ~ xTrain)
+        #fit <- lm(yTrainO[,l] ~ xTrain)
+        predsO <- cbind(1, xTestO[,l]) %*% matrix(coef(fitO), ncol = 1)
+        preds <- cbind(1, xTestUp) %*% matrix(coef(fit), ncol = 1)
+        #preds <- cbind(1, xTest) %*% matrix(coef(fit), ncol = 1)
+        #preds <- cbind(1, xTestO[,l]) %*% matrix(coef(fit), ncol = 1)
+        predsIn <- cbind(1, xTestO[,l]) %*% matrix(coef(fitIn), ncol = 1)
+
+        #predmatO[[j]][fold, l] <- predsO
+        predmat[[j]][fold, l] <- preds
+
+        cvrawO[[j]][fold, l] <- (predsO - yTestO[,l])^2
+        #cvraw[[j]][fold, l] <- (preds - yTest)^2
+
+        cvraw[[j]][fold, l] <- (preds - yTestIn[, l])^2
+
+        #cvraw[[j]][fold, l] <- (preds - yTestO[, l])^2
+        cvrawIn[[j]][fold, l] <- (predsIn - yTestO[, l])^2
+
+      }
+
+      #W <- expm::sqrtm(P[[j]]) ## qxq
+      #yTestT <- y %*% W
+      #cvraw[[j]] <- (y - predmat[[j]])^2
+
+      cvmFold[[j]][i,] <- apply(cvraw[[j]][fold, ], 2, mean, na.rm = TRUE)
+
+    }
+
+    if(!is.null(trace)) cat("\n")
+  }
+
+  N <- nrow(y)
+  q <- ncol(y)
+
+  #cvrawO <- lapply(predmatO, FUN = function(l) (y - l)^2)
+  #cvraw <- lapply(predmat, FUN = function(l) (y - l)^2)
+
+  cvmO <- sapply(cvrawO, mean, na.rm = TRUE)
+  cvm <- sapply(cvraw, mean, na.rm = TRUE)
+  cvmN <- sapply(cvrawN, mean, na.rm = TRUE)
+  cvmIn <- sapply(cvrawIn, mean, na.rm = TRUE)
+  #cvsd <- sapply(cvraw, sd, na.rm = TRUE)
+  cvsdWRONG <- sqrt(sapply(cvraw, FUN = function(l) mean((l - cvm)^2, na.rm = TRUE))/(N-1))
+  cvsd <- sqrt(sapply(seq_along(cvmFold), FUN = function(j) sum((cvmFold[[j]] - cvm[j])^2, na.rm = TRUE))/(q*(N-1)))
+  cvsdO <- sqrt(sapply(cvrawO, FUN = function(l) mean((l - cvmO)^2, na.rm = TRUE))/(N-1))
+
+  #cvm <- rowMeans(cvraw)
+  #cvsd1 <- sqrt(apply((cvraw - cvm)^2, 2, sum, na.rm = TRUE)/(nfolds - 1))
+  #cvsd2 <- apply(cvraw, 2,  sd, na.rm = TRUE)
+
+  names(type.measure) <- "Mean-Squared Error"
+
+
+  list(cvm = cvm, cvsd = cvsd, cvmO = cvmO, cvsdO = cvsdO, cvmN = cvmN, cvmI = cvmIn,
+       type.measure = type.measure)
+
+}
+
+
+
+
+
+# Cross-validation
+cv.old <- function(rho, x, y, nfolds, penalty, type.measure, trace,
+                   logrho, rho.min.ratio) {
+
+  nrho <- length(rho)
+  foldid <- sample(rep(seq(nfolds), length = nrow(x)))
+
+  predmat <- vector(mode = "list", length = nrho)
+  predmat <- lapply(predmat, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+  for (i in seq(nfolds)) {
+
+    if(!is.null(trace)) cat("i: ", i, ", ")
+
+    fold <- foldid == i
+
+    if (is.matrix(y)) {
+      yTrain <- y[!fold, ]
+      yTest <- y[fold, ]
+    } else {
+      yTrain <- y[!fold]
+      yTest <- y[fold]
+    }
+    xTrain <- x[!fold, , drop = FALSE]
+    xTest <- x[fold, , drop = FALSE]
+
+    outlist <- edgwas(xTrain, yTrain, rho = NULL, nrho, logrho, rho.min.ratio)
+
+    for (j in seq(length(rho))) {
+
+      if(!is.null(trace)) cat(".")
+
+      w <- expm::sqrtm(outlist$P[[j]]) ## qxq
+      wy <- yTrain %*% w ## nrow(xTrain)xq
+      xVex <- matrix(rep(c(xTrain), ncol(w)), ncol = ncol(w)) ## nrow(xTrain)*pxq
+      wx <- xVex %*% w ## nrow(xTrain)*pxq
+
+      #fit <- list(NULL)
+      for (l in seq(ncol(y))) {
+        xsubsub <- matrix(wx[,l], ncol = ncol(x)) ## 900*10000
+
+        preds <- switch(penalty,
+                        lasso = {
+                          lasFit <- glmnet::cv.glmnet(x = xsubsub, y = c(wy[, l]))
+                          nz <- which(coef(lasFit, s="lambda.min")[-1] != 0)
+                          if (length(nz) < 1) {
+                            matrix(mean(wy[,l]), nrow = nrow(yTest))
+                          } else {
+                            trainData <- data.frame(y = wy[,l], x = I(xsubsub[,nz]))
+                            lmFit <- lm(y ~ x, data = trainData)
+                            cbind(1, xTest[,nz]) %*% coef(lmFit)
+                          }
+                        },
+                        ridge = {
+                          ridgeFit <- glmnet::cv.glmnet(x = xsubsub,
+                                                        y = c(wy[, l]),
+                                                        alpha = 0)
+                          cbind(1, xTest) %*% matrix(coef(ridgeFit), ncol = 1)
+                        }
+        )
+
+        predmat[[j]][fold, l] <- preds
+
+      }
+
+    }
+
+    if(!is.null(trace)) cat("\n")
+  }
+
+  N <- nrow(y)
+  cvraw <- lapply(predmat, FUN = function(l) (y - l)^2)
+
+  cvm <- sapply(cvraw, mean, na.rm = TRUE)
+  #cvsd <- sapply(cvraw, sd, na.rm = TRUE)
+  cvsd <- sqrt(sapply(cvraw, FUN = function(l) mean((l - cvm)^2, na.rm = TRUE))/(N-1))
+
+  #cvm <- rowMeans(cvraw)
+  #cvsd1 <- sqrt(apply((cvraw - cvm)^2, 2, sum, na.rm = TRUE)/(nfolds - 1))
+  #cvsd2 <- apply(cvraw, 2,  sd, na.rm = TRUE)
+
+  names(type.measure) <- "Mean-Squared Error"
+
+
+  list(cvm = cvm, cvsd = cvsd, type.measure = type.measure)
+
+}
+
+

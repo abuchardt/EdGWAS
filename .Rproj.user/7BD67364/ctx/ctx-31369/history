@@ -1,0 +1,512 @@
+nrho <- length(rho)
+foldid <- sample(rep(seq(nfolds), length = nrow(y)))
+cvraw <- vector(mode = "list", length = nrho)
+cvraw <- lapply(cvraw, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+cvmFold <- vector(mode = "list", length = nrho)
+cvmFold <- lapply(cvmFold, FUN = function(l) matrix(NA, nfolds, ncol(y)))
+fold <- foldid == i
+i
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+outlist[[i]]
+?glmnet
+library(glmnet)
+?glmnet
+fit
+outlist[[i]]$summary
+coef(outlist[[i]]$summary)
+coef(outlist[[i]]$summary[[1]])
+library(EdGwas)
+N <- 1000 #
+q <- 10 #
+p <- 1000 #
+set.seed(1)
+# Sample 1
+X0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:2] <- 2
+y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y0 <- apply(y0, 2, scale)
+beta <- ps.edgwas(X0, y0)$beta
+# Sample 2
+X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y <- apply(y, 2, scale)
+#Sigma <- diag(1, q)
+#Sigma[1, 2] <- Sigma[2, 1] <- .8
+#y <- X %*% B + MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = Sigma)
+x <- X %*% beta
+rho = NULL
+nfolds = 10
+nrho = ifelse(is.null(rho), 40, length(rho))
+logrho = FALSE
+rho.min.ratio = 10e-04
+edgwas.call <- match.call(expand.dots = TRUE)
+edgwas.call[[1]] <- as.name("edgwas")
+edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
+edgwas.object$call <- edgwas.call
+rho <- edgwas.object$rho
+PS <- edgwas.object$PS
+P <- edgwas.object$P
+Sigma <- edgwas.object$Sigma
+foldid <- sample(rep(seq(nfolds), length = nrow(y)))
+outlist = vector(mode = "list", length = nfolds)
+for (i in seq(nfolds)) {
+fold <- foldid == i
+yTrain <- y[!fold, ]
+xTrain <- PS[!fold, ]
+outlist[[i]] <- edgwas(x = xTrain, y = yTrain, rho, nrho, logrho, rho.min.ratio)
+}
+cvraw <- vector(mode = "list", length = nrho)
+cvraw <- lapply(cvraw, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+cvmFold <- vector(mode = "list", length = nrho)
+cvmFold <- lapply(cvmFold, FUN = function(l) matrix(NA, nfolds, ncol(y)))
+fold <- foldid == i
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+library(EdGwas)
+#' N <- 1000 #
+#' q <- 10 #
+#' p <- 1000 #
+#' set.seed(1)
+#' # Sample 1
+#' X0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+#' B <- matrix(0, nrow = p, ncol = q)
+#' B[1, 1:2] <- 2
+#' y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' #y0 <- apply(y0, 2, scale)
+#' beta <- ps.edgwas(X0, y0)$beta
+#' # Sample 2
+#' X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+#' y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#' #y <- apply(y, 2, scale)
+#' #Sigma <- diag(1, q)
+#' #Sigma[1, 2] <- Sigma[2, 1] <- .8
+#' #y <- X %*% B + MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = Sigma)
+#' x <- X %*% beta
+#' #x <- MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = diag(1, q))
+#' ###
+rho = NULL
+nfolds = 10
+nrho = ifelse(is.null(rho), 40, length(rho))
+logrho = FALSE
+rho.min.ratio = 10e-04
+edgwas.call <- match.call(expand.dots = TRUE)
+edgwas.call[[1]] <- as.name("edgwas")
+edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
+edgwas.object$call <- edgwas.call
+N <- 1000 #
+q <- 10 #
+p <- 1000 #
+set.seed(1)
+# Sample 1
+X0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:2] <- 2
+y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y0 <- apply(y0, 2, scale)
+beta <- ps.edgwas(X0, y0)$beta
+# Sample 2
+X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y <- apply(y, 2, scale)
+#Sigma <- diag(1, q)
+#Sigma[1, 2] <- Sigma[2, 1] <- .8
+#y <- X %*% B + MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = Sigma)
+x <- X %*% beta
+#x <- MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = diag(1, q))
+###
+edgwas.call <- match.call(expand.dots = TRUE)
+edgwas.call[[1]] <- as.name("edgwas")
+edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
+edgwas.object$call <- edgwas.call
+rho <- edgwas.object$rho
+PS <- edgwas.object$PS
+P <- edgwas.object$P
+Sigma <- edgwas.object$Sigma
+foldid <- sample(rep(seq(nfolds), length = nrow(y)))
+outlist = vector(mode = "list", length = nfolds)
+for (i in seq(nfolds)) {
+fold <- foldid == i
+yTrain <- y[!fold, ]
+xTrain <- PS[!fold, ]
+outlist[[i]] <- edgwas(x = xTrain, y = yTrain, rho, nrho, logrho, rho.min.ratio)
+}
+cvraw <- vector(mode = "list", length = nrho)
+cvraw <- lapply(cvraw, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+cvmFold <- vector(mode = "list", length = nrho)
+cvmFold <- lapply(cvmFold, FUN = function(l) matrix(NA, nfolds, ncol(y)))
+fold <- foldid == i
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+#' newy <- predict(pc, newPS = ps[(1:100), ], rho = max(pc$rho))[[1]]
+#'
+#' mean((newy[,1] - y[1:100, 1])^2)
+#' pss <- ps[-(1:100), 1]
+#' lmfit <- lm(y[-(1:100), 1] ~ pss)
+#' newylm <- predict(lmfit, newdata = data.frame(pss = ps[(1:100), 1]))
+#' mean((newylm - y[1:100, 1])^2)
+#'
+#' @export
+#'
+predict.edgwas <- function(object, newPS, rho = NULL,
+type = c("link", "coefficients"), #"response","nonzero","class"),
+#exact = FALSE, newoffset
+...
+){
+type <- match.arg(type)
+if (missing(newPS)){
+if (!match(type, "coefficients", FALSE))
+stop("Value for 'newPS' missing")
+}
+if (is.null(rho)){
+rho <- object$rho
+} else if (is.numeric(rho)) {
+if (!all(rho %in% object$rho))
+stop("rho needs to be a value used to create the model")
+} else stop("Invalid form for rho")
+nrho <- length(rho)
+whichRho <- match(rho, object$rho, FALSE)
+nouts <- ncol(newPS)
+if(FALSE) {
+ncoef <- lapply(seq(nouts), FUN = function(l) {
+out <- rbind(object$alpha[l, whichRho], object$beta[l, whichRho])
+colnames(out) <- paste0("rho", whichRho)
+rownames(out) <- c("alpha", "beta")
+out
+})
+names(ncoef) <- paste0("y", seq(nouts))
+if (type == "coefficients")
+return(ncoef)
+}
+nfit <- vector(mode = "list", length = nrho)
+rhoseq <- seq(nrho)
+for (j in rhoseq) {
+if(all(object$A[[j]] == 0)) break
+xVec <- as.vector(newPS)
+traitID <- as.factor(rep(1:nouts, each = nrow(y[fold, ])))
+nfit[[j]] <- predict(object$summary[[j]],
+newdata = data.frame(xVec, traitID),
+re.form = NA)
+}
+#names(nfit) <- paste0("rho", whichRho)
+nfit
+}
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+ps0 <- PS[!fold, l]
+matrix(1:4, 2)
+#' newy <- predict(pc, newPS = ps[(1:100), ], rho = max(pc$rho))[[1]]
+#'
+#' mean((newy[,1] - y[1:100, 1])^2)
+#' pss <- ps[-(1:100), 1]
+#' lmfit <- lm(y[-(1:100), 1] ~ pss)
+#' newylm <- predict(lmfit, newdata = data.frame(pss = ps[(1:100), 1]))
+#' mean((newylm - y[1:100, 1])^2)
+#'
+#' @export
+#'
+predict.edgwas <- function(object, newPS, rho = NULL,
+type = c("link", "coefficients"), #"response","nonzero","class"),
+#exact = FALSE, newoffset
+...
+){
+type <- match.arg(type)
+if (missing(newPS)){
+if (!match(type, "coefficients", FALSE))
+stop("Value for 'newPS' missing")
+}
+if (is.null(rho)){
+rho <- object$rho
+} else if (is.numeric(rho)) {
+if (!all(rho %in% object$rho))
+stop("rho needs to be a value used to create the model")
+} else stop("Invalid form for rho")
+nrho <- length(rho)
+whichRho <- match(rho, object$rho, FALSE)
+nouts <- ncol(newPS)
+if(FALSE) {
+ncoef <- lapply(seq(nouts), FUN = function(l) {
+out <- rbind(object$alpha[l, whichRho], object$beta[l, whichRho])
+colnames(out) <- paste0("rho", whichRho)
+rownames(out) <- c("alpha", "beta")
+out
+})
+names(ncoef) <- paste0("y", seq(nouts))
+if (type == "coefficients")
+return(ncoef)
+}
+nfit <- vector(mode = "list", length = nrho)
+rhoseq <- seq(nrho)
+for (j in rhoseq) {
+if(all(object$A[[j]] == 0)) break
+xVec <- as.vector(newPS)
+traitID <- as.factor(rep(1:nouts, each = nrow(y[fold, ])))
+pred <- predict(object$summary[[j]],
+newdata = data.frame(xVec, traitID),
+re.form = NA)
+nfit[[j]] <- matrix(pred, ncol = nouts)
+}
+#names(nfit) <- paste0("rho", whichRho)
+nfit
+}
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+predsList[[j]]
+j=40
+j=1
+predsList[[j]]
+(predsList[[j]] - y[fold, ])^2
+ps0 <- PS[!fold, 1]
+fit0 <- lm(y[!fold, 1] ~ ps0)
+pred0 <- predict(fit0, newdata = data.frame(ps0 = PS[fold, 1]))
+plot(preds[,1]); points(pred0, col = 3); points(y[fold, 1], col = 2) #
+plot(predsList[[j]][,1]); points(pred0, col = 3); points(y[fold, 1], col = 2) #
+mean((predsList[[j]] - y[fold, l])^2)
+mean((predsList[[j]] - y[fold, 1])^2)
+mean((pred0 - y[fold, 1])^2)
+mean(predsList[[j]]); mean(pred0); mean(y[fold, 1])
+mean((predsList[[j]][,1] - y[fold, 1])^2); mean((pred0 - y[fold, 1])^2)
+mean(predsList[[j]][,1]); mean(pred0); mean(y[fold, 1])
+j
+A <- edgwas.object$A
+A[[j]]
+j=10
+A[[j]]
+plot(predsList[[j]][,1]); points(pred0, col = 3); points(y[fold, 1], col = 2) #
+mean((predsList[[j]][,1] - y[fold, 1])^2); mean((pred0 - y[fold, 1])^2)
+mean(predsList[[j]][,1]); mean(pred0); mean(y[fold, 1])
+sd(predsList[[j]][,1]); sd(pred0); sd(y[fold, 1])
+l=10
+ps0 <- PS[!fold, l]
+fit0 <- lm(y[!fold, l] ~ ps0)
+pred0 <- predict(fit0, newdata = data.frame(ps0 = PS[fold, l]))
+plot(predsList[[j]][,l]); points(pred0, col = 3); points(y[fold, l], col = 2) #
+j
+A[[j]]
+mean((predsList[[j]][,l] - y[fold, l])^2); mean((pred0 - y[fold, l])^2)
+A[[15]]
+mean(predsList[[j]][,l]); mean(pred0); mean(y[fold, l])
+sd(predsList[[j]][,l]); sd(pred0); sd(y[fold, l])
+B[1, 1:2] <- 4
+y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y0 <- apply(y0, 2, scale)
+beta <- ps.edgwas(X0, y0)$beta
+# Sample 2
+X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y <- apply(y, 2, scale)
+#Sigma <- diag(1, q)
+#Sigma[1, 2] <- Sigma[2, 1] <- .8
+#y <- X %*% B + MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = Sigma)
+x <- X %*% beta
+#x <- MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = diag(1, q))
+edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
+edgwas.object$call <- edgwas.call
+rho <- edgwas.object$rho
+PS <- edgwas.object$PS
+P <- edgwas.object$P
+Sigma <- edgwas.object$Sigma
+A <- edgwas.object$A
+foldid <- sample(rep(seq(nfolds), length = nrow(y)))
+outlist = vector(mode = "list", length = nfolds)
+for (i in seq(nfolds)) {
+fold <- foldid == i
+yTrain <- y[!fold, ]
+xTrain <- PS[!fold, ]
+outlist[[i]] <- edgwas(x = xTrain, y = yTrain, rho, nrho, logrho, rho.min.ratio)
+}
+cvraw <- vector(mode = "list", length = nrho)
+cvraw <- lapply(cvraw, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+cvmFold <- vector(mode = "list", length = nrho)
+cvmFold <- lapply(cvmFold, FUN = function(l) matrix(NA, nfolds, ncol(y)))
+fold <- foldid == i
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+j=1
+l=10
+ps0 <- PS[!fold, l]
+fit0 <- lm(y[!fold, l] ~ ps0)
+pred0 <- predict(fit0, newdata = data.frame(ps0 = PS[fold, l]))
+plot(predsList[[j]][,l]); points(pred0, col = 3); points(y[fold, l], col = 2) #
+mean((predsList[[j]][,l] - y[fold, l])^2); mean((pred0 - y[fold, l])^2)
+mean(predsList[[j]][,l]); mean(pred0); mean(y[fold, l])
+sd(predsList[[j]][,l]); sd(pred0); sd(y[fold, l])
+np <- dim(x)
+if (is.null(np) | (np[2] <= 1))
+stop("x should be a matrix with 2 or more columns")
+nobs <- as.integer(np[1])
+nvars <- as.integer(np[2])
+dimy <- dim(y)
+nrowy <- ifelse(is.null(dimy), length(y), dimy[1])
+nouts <- ifelse(is.null(dimy), 1, dimy[2])
+if (nrowy != nobs)
+stop(paste("number of observations in y (", nrowy, ") not equal to the number of rows of x (",
+nobs, ")", sep = ""))
+if (nvars != nouts)
+stop(paste("number of scores (", nvars, ") not equal to number of outcome components (", nouts, ")", sep = ""))
+vnames <- colnames(x)
+if (is.null(vnames))
+vnames <- paste("V", seq(nvars), sep = "")
+if (is.null(rho)) {
+if (rho.min.ratio >= 1)
+stop("rho.min.ratio should be less than 1")
+flmin <- as.double(rho.min.ratio)
+urho <- double(1)
+#rholist <- rho
+#nrho <- 10
+} else {
+nrho = as.integer(nrho)
+flmin <- as.double(1)
+if (any(rho < 0))
+stop("rhos should be non-negative")
+urho <- as.double(rev(sort(rho)))
+nrho <- as.integer(length(rho))
+rholist <- as.double(rho)
+}
+xScale <- apply(x, 2, scale) #
+yScale <- apply(y, 2, scale) #y #
+####################
+# STEP 2
+####################
+# Covariance matrix (qxq) of PSs
+SigmaPS <- cov(xScale) # cor(x) # cov(x) #cov(yScale) #
+# Calculate rho path (first get rho_max):
+if (is.null(rho)) {
+rho_max <- max(colSums(SigmaPS))
+if(logrho == 0) {
+rholist <- round(seq(rho_max*flmin, rho_max,
+length.out = nrho), digits = 10)
+} else if (logrho == 1) {
+rholist <- round(exp(seq(log(rho_max*flmin), log(rho_max),
+length.out = nrho)), digits = 10)
+} else if (logrho == 2) {
+rholist <- round(log(seq(exp(rho_max*flmin), exp(rho_max),
+length.out = nrho)), digits = 10)
+}
+} else {
+rholist <- rho
+}
+# Graphical lasso
+# Estimates a sparse inverse covariance matrix using a lasso (L1) penalty
+#glPS <- glasso::glassopath(s = SigmaPS, rho = rholist,
+#                            penalize.diagonal = FALSE, trace = 0)
+glPS2 <- lapply(seq_along(rholist), FUN = function(r) {
+glasso::glasso(s = SigmaPS, rho = rholist[r],
+penalize.diagonal = FALSE,
+trace = 0)
+})
+rho <- rholist
+P <- lapply(seq_along(rho), function(r) glPS2[[r]]$wi)
+Sigma <- lapply(seq_along(rho), function(r) glPS2[[r]]$w)
+A <- lapply(seq_along(rho), function(r) {
+AA <- P[[r]]
+AA[abs(AA) > 1.5e-8] <- 1
+#diag(AA) <- 0
+AA[lower.tri(AA, diag = TRUE)] <- 0
+AA
+})
+summarylist <- list(NULL)
+j
+A[[j]]
+individual <- rep(1:nrow(y), nouts)
+traitID <- as.factor(rep(1:nouts, each = nrow(y)))
+yVec <- as.vector(y)
+xVec <- as.vector(x)
+g  <- graph.adjacency(A[[j]])
+g  <- igraph::graph.adjacency(A[[j]])
+df <- igraph::get.data.frame(g)
+clu <- igraph::components(g)
+gr <- matrix(1:(nobs*clu$no), ncol = clu$no)
+group <- as.vector(mapply(clu$membership, FUN = function(x) gr[,x]))
+summarylist[[j]] <- lmer(yVec ~ xVec*traitID + (1 | group),
+weights=varIdent(form = ~ 1 | group)) # + (1 | individual)
+summarylist[[j]] <- lme4::lmer(yVec ~ xVec*traitID + (1 | group),
+weights=varIdent(form = ~ 1 | group)) # + (1 | individual)
+summarylist[[j]] <- lme4::lmer(yVec ~ xVec*traitID + (1 | group),
+weights = igraph::varIdent(form = ~ 1 | group)) # + (1 | individual)
+summarylist[[j]] <- lme4::lmer(yVec ~ xVec*traitID + (1 | group),
+weights = lme4::varIdent(form = ~ 1 | group)) # + (1 | individual)
+?varIdent
+library(lme4)
+?lmer
+summarylist[[j]] <- nlme::lmer(yVec ~ xVec*traitID + (1 | group),
+weights = nlme::varIdent(form = ~ 1 | group)) # + (1 | individual)
+?nlme
+summarylist[[j]] <- nlme::nlme(yVec ~ xVec*traitID + (1 | group),
+weights = nlme::varIdent(form = ~ 1 | group)) # + (1 | individual)
+?lme
+summarylist[[j]] <- nlme::lme(yVec ~ xVec*traitID + (1 | group),
+weights = nlme::varIdent(form = ~ 1 | group)) # + (1 | individual)
+summarylist[[j]] <- nlme::lme(fixed = yVec ~ xVec*traitID,
+random =  ~ 1 | group,
+weights = nlme::varIdent(form = ~ 1 | group)) # + (1 | individual)
+library(EdGwas)
+N <- 1000 #
+q <- 10 #
+p <- 1000 #
+set.seed(1)
+# Sample 1
+X0 <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+B <- matrix(0, nrow = p, ncol = q)
+B[1, 1:2] <- 4
+y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y0 <- apply(y0, 2, scale)
+beta <- ps.edgwas(X0, y0)$beta
+# Sample 2
+X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
+y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
+#y <- apply(y, 2, scale)
+#Sigma <- diag(1, q)
+#Sigma[1, 2] <- Sigma[2, 1] <- .8
+#y <- X %*% B + MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = Sigma)
+x <- X %*% beta
+#x <- MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = diag(1, q))
+rho = NULL
+nfolds = 10
+nrho = ifelse(is.null(rho), 40, length(rho))
+logrho = FALSE
+rho.min.ratio = 10e-04
+edgwas.call <- match.call(expand.dots = TRUE)
+edgwas.call[[1]] <- as.name("edgwas")
+edgwas.object <- edgwas(x, y, rho, nrho, logrho, rho.min.ratio)
+edgwas.object$call <- edgwas.call
+rho <- edgwas.object$rho
+PS <- edgwas.object$PS
+P <- edgwas.object$P
+Sigma <- edgwas.object$Sigma
+A <- edgwas.object$A
+foldid <- sample(rep(seq(nfolds), length = nrow(y)))
+outlist = vector(mode = "list", length = nfolds)
+for (i in seq(nfolds)) {
+fold <- foldid == i
+yTrain <- y[!fold, ]
+xTrain <- PS[!fold, ]
+outlist[[i]] <- edgwas(x = xTrain, y = yTrain, rho, nrho, logrho, rho.min.ratio)
+}
+cvraw <- vector(mode = "list", length = nrho)
+cvraw <- lapply(cvraw, FUN = function(l) matrix(NA, nrow(y), ncol(y)))
+cvmFold <- vector(mode = "list", length = nrho)
+cvmFold <- lapply(cvmFold, FUN = function(l) matrix(NA, nfolds, ncol(y)))
+fold <- foldid == i
+predsList <- predict(outlist[[i]], newPS = PS[fold, ], type = "link")
+l=10
+ytest <- scale(y[fold, l]) # y[fold, l]
+ps0 <- PS[!fold, l]
+fit0 <- lm(scale(y[!fold, l]) ~ ps0)
+pred0 <- predict(fit0, newdata = data.frame(ps0 = PS[fold, l]))
+plot(predsList[[j]][,l]); points(pred0, col = 3); points(ytest, col = 2) #
+j=1
+plot(predsList[[j]][,l]); points(pred0, col = 3); points(ytest, col = 2) #
+plot(predsList[[j]][,l])
+points(pred0, col = 3)
+mean((predsList[[j]][,l] - ytest)^2); mean((pred0 - ytest)^2)
+mean(predsList[[j]][,l]); mean(pred0); mean(ytest)
+sd(predsList[[j]][,l]); sd(pred0); sd(ytest)
+l=1#10
+ytest <- scale(y[fold, l]) # y[fold, l]
+ps0 <- PS[!fold, l]
+fit0 <- lm(scale(y[!fold, l]) ~ ps0)
+pred0 <- predict(fit0, newdata = data.frame(ps0 = PS[fold, l]))
+plot(predsList[[j]][,l]); points(pred0, col = 3); points(ytest, col = 2) #
+plot(predsList[[j]][,l])
+points(pred0, col = 3)
+points(ytest, col = 2)
+mean((predsList[[j]][,l] - ytest)^2); mean((pred0 - ytest)^2)
+j
+mean(predsList[[j]][,l]); mean(pred0); mean(ytest)
+sd(predsList[[j]][,l]); sd(pred0); sd(ytest)

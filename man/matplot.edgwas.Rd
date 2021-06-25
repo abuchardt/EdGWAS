@@ -4,12 +4,12 @@
 \alias{matplot.edgwas}
 \title{Adjacency matrix plot for a cv.edgwas object}
 \usage{
-matplot.edgwas(x, s = c("rho.min", "rho.1se"), A = NULL,
-  col = "darkgrey", col.border = "#D95F02", bty = "n", axes = TRUE,
-  frame.plot = FALSE, ...)
+matplot.edgwas(x, s = "rho.min", A = NULL, col = "darkgrey",
+  col.border = "#D95F02", bty = "n", xlab = NULL, ylab = NULL,
+  axes = TRUE, frame.plot = FALSE, reorder = FALSE, ...)
 }
 \arguments{
-\item{x}{Fitted "cv.edgwas" object.}
+\item{x}{Fitted "edgwas" object.}
 
 \item{s}{Value(s) of the penalty parameters rho for which the corresponding adjacency matrix is plotted. Default is rho.min.}
 
@@ -17,11 +17,19 @@ matplot.edgwas(x, s = c("rho.min", "rho.1se"), A = NULL,
 
 \item{col}{Color(s) to fill or shade the non-zero entries with. The default is \code{col = "lightgrey"}.}
 
+\item{col.border}{Color for rectangle border(s). The default is \code{col.border = "#D95F02"}.}
+
 \item{bty}{A character string which determine the type of box which is drawn about plots. Default is "n" which suppresses the box.}
+
+\item{xlab}{A label for the x axis, defaults to 1:nouts}
+
+\item{ylab}{A label for the y axis, defaults to 1:nouts}
 
 \item{axes}{A logical value indicating whether axes should be drawn on the plot.}
 
 \item{frame.plot}{A logical value indicating whether a box should be drawn around the plot.}
+
+\item{reorder}{A logical value indicating whether rows and columns of adjacency matrix should be ordered according to clusters.}
 
 \item{...}{Other paramters to be passed through to plotting functions.}
 }
