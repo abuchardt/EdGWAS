@@ -1,29 +1,31 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
-EdGwas
-======
+
+# EdGWAS
 
 <!-- badges: start -->
 <!-- badges: end -->
-The goal of EdGwas is to help clustering outcome components (traits) that share some feature (genetic component) using polygenic risk scores (PRS).
 
-Installation
-------------
+The goal of EdGWAS is to help clustering outcome components (traits)
+that share some feature (genetic component) using polygenic risk scores
+(PRS).
 
-You can install the development version from [GitHub](https://github.com/) with:
+## Installation
+
+You can install the development version from
+[GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("abuchardt/EdGwas")
+devtools::install_github("abuchardt/EdGWAS")
 ```
 
-Example
--------
+## Example
 
 This is a basic example on simulated data:
 
 ``` r
-library(EdGwas)
+library(EdGWAS)
 N <- 1000 #
 q <- 10 #
 p <- 5000 #

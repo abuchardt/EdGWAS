@@ -4,10 +4,19 @@
 \alias{plot.edgwas}
 \title{Plot diagnostics for an edgwas object}
 \usage{
-\method{plot}{edgwas}(x, which = c(1L:2L), main = "", xlab = NULL,
-  ylab = NULL, ask = prod(par("mfcol")) < length(which) &&
-  dev.interactive(), pointsCol = "#D95F02", ylim = NULL, xlim = NULL,
-  col = NULL, ...)
+\method{plot}{edgwas}(
+  x,
+  which = c(1L:2L),
+  main = "",
+  xlab = NULL,
+  ylab = NULL,
+  ask = prod(par("mfcol")) < length(which) && dev.interactive(),
+  pointsCol = "#D95F02",
+  ylim = NULL,
+  xlim = NULL,
+  col = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{Fitted "edgwas" object.}
@@ -33,7 +42,7 @@
 \item{...}{Other paramters to be passed through to plotting functions.}
 }
 \description{
-Two plots (selectable by which) are currently available: a plot of the mean standard error curve produced by EdGWAS i.e., the MSE and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for rho.min.
+Two plots (selectable by which) are currently available: a plot of the mean standard error curve produced by edgwas i.e., the MSE and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for rho.min.
 }
 \details{
 Plots are produced, and nothing is returned.

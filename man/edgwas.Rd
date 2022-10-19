@@ -4,11 +4,17 @@
 \alias{edgwas}
 \title{Cluster multiple traits via polygenic scores}
 \usage{
-edgwas(x, y, rho = NULL, nrho = ifelse(is.null(rho), 20, length(rho)),
-  logrho = FALSE, rho.min.ratio = 0.001)
+edgwas(
+  x,
+  y,
+  rho = NULL,
+  nrho = ifelse(is.null(rho), 20, length(rho)),
+  logrho = FALSE,
+  rho.min.ratio = 0.001
+)
 }
 \arguments{
-\item{x}{Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.}
+\item{x}{Input matrix, of dimension nobs x nvars of PGSs with nvars = nouts. Can be in sparse matrix format.}
 
 \item{y}{Quantitative response matrix, of dimension nobs x nouts.}
 

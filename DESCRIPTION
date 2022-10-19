@@ -1,4 +1,4 @@
-Package: EdGwas
+Package: EdGWAS
 Type: Package
 Title: Cluster multiple traits via PRS
 Version: 0.1.0
@@ -20,4 +20,4 @@ Imports:
   plotly,
   lme4,
   igraph
-RoxygenNote: 6.1.1
+RoxygenNote: 7.2.1

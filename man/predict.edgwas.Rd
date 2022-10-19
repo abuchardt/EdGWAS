@@ -2,10 +2,9 @@
 % Please edit documentation in R/predict.edgwas.R
 \name{predict.edgwas}
 \alias{predict.edgwas}
-\title{Extract coefficients from a edgwas object}
+\title{Extract coefficients from an edgwas object}
 \usage{
-\method{predict}{edgwas}(object, newPS, rho = NULL, type = c("link",
-  "coefficients"), ...)
+\method{predict}{edgwas}(object, newPS, rho = NULL, type = c("link", "coefficients"), ...)
 }
 \arguments{
 \item{object}{Fitted "edgwas" object.}

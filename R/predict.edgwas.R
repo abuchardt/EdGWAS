@@ -1,4 +1,4 @@
-#' Extract coefficients from a edgwas object
+#' Extract coefficients from an edgwas object
 #'
 #' Similar to other predict methods, this function predicts fitted values and extract coefficients from a fitted "edgwas" object.
 #'

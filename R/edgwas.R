@@ -4,7 +4,7 @@
 #'
 #' ...
 #'
-#' @param x Input matrix, of dimension nobs x nvars or nobs x nouts; each row is an observation vector. A matrix of PSs if \code{scores = TRUE} (default) and nvars = nouts. Can be in sparse matrix format.
+#' @param x Input matrix, of dimension nobs x nvars of PGSs with nvars = nouts. Can be in sparse matrix format.
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
 #' @param rho (Non-negative) regularisation parameter for lasso passed to glasso. \code{rho=0} means no regularisation. Can be a scalar (usual) or a symmetric nouts by nouts matrix, or a vector of length nouts. In the latter case, the penalty matrix has jkth element sqrt(rho[j]*rho[k]).
 #' @param nrho The number of rho values - default is 40.

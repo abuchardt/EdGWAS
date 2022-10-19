@@ -4,9 +4,20 @@
 \alias{matplot.edgwas}
 \title{Adjacency matrix plot for a cv.edgwas object}
 \usage{
-matplot.edgwas(x, s = "rho.min", A = NULL, col = "darkgrey",
-  col.border = "#D95F02", bty = "n", xlab = NULL, ylab = NULL,
-  axes = TRUE, frame.plot = FALSE, reorder = FALSE, ...)
+matplot.edgwas(
+  x,
+  s = "rho.min",
+  A = NULL,
+  col = "darkgrey",
+  col.border = "#D95F02",
+  bty = "n",
+  xlab = NULL,
+  ylab = NULL,
+  axes = TRUE,
+  frame.plot = FALSE,
+  reorder = FALSE,
+  ...
+)
 }
 \arguments{
 \item{x}{Fitted "edgwas" object.}

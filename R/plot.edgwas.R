@@ -1,6 +1,6 @@
 #' Plot diagnostics for an edgwas object
 #'
-#' Two plots (selectable by which) are currently available: a plot of the mean standard error curve produced by EdGWAS i.e., the MSE and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for rho.min.
+#' Two plots (selectable by which) are currently available: a plot of the mean standard error curve produced by edgwas i.e., the MSE and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for rho.min.
 #'
 #' @param x Fitted "edgwas" object.
 #' @param which If a subset of the plots is required, specify a subset of the numbers \code{1:5}.
