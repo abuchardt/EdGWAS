@@ -1,12 +1,12 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# EdGWAS
+# geneJAM
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of EdGWAS is to help clustering outcome components (traits)
+The goal of geneJAM is to help clustering outcome components (traits)
 that share some feature (genetic component) using polygenic risk scores
 (PRS).
 
@@ -17,7 +17,7 @@ You can install the development version from
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("abuchardt/EdGWAS")
+devtools::install_github("abuchardt/geneJAM")
 ```
 
 ## Example
@@ -25,7 +25,7 @@ devtools::install_github("abuchardt/EdGWAS")
 This is a basic example on simulated data:
 
 ``` r
-library(EdGWAS)
+library(geneJAM)
 N <- 1000 #
 q <- 10 #
 p <- 5000 #
@@ -41,7 +41,7 @@ Y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 Compute polygenic scores and coefficients
 
 ``` r
-psobj <- ps.edgwas(X0, Y0)
+psobj <- ps.geneJAM(X0, Y0)
 ps <- psobj$PS
 beta <- psobj$beta
 ```
@@ -54,10 +54,10 @@ Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 PS <- X %*% beta
 ```
 
-Run EdGWAS
+Run geneJAM
 
 ``` r
-fit <- edgwas(PS, Y)
+fit <- geneJAM(PS, Y)
 ```
 
 Plot mean standard error curve

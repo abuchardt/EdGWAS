@@ -7,7 +7,7 @@
 #' @param x Input matrix, of dimension nobs x nvars; each row is an observation vector. Can be in sparse matrix format.
 #' @param y Quantitative response matrix, of dimension nobs x nouts.
 #'
-#' @return An object of class "ps.edgwas" is returned. \item{PS}{A matrix of dimension nobs x nouts of polygenic scores.}
+#' @return An object of class "ps.geneJAM" is returned. \item{PS}{A matrix of dimension nobs x nouts of polygenic scores.}
 #'
 #' @examples
 #' N <- 500 #
@@ -19,12 +19,12 @@
 #' B[1, 1:2] <- 2
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 #' ###
-#' ps <- ps.edgwas(x, y)
+#' ps <- ps.geneJAM(x, y)
 #'
 #' @export
 #'
 
-ps.edgwas <- function(x, y) {
+ps.geneJAM <- function(x, y) {
 
   # Compute q simple GWASs
   fit <- MESS::plr(y = y, x = x)
@@ -36,6 +36,6 @@ ps.edgwas <- function(x, y) {
 
   # Return
   obj <- list(PS = PS, beta = beta)
-  class(obj) <- "ps.edgwas"
+  class(obj) <- "ps.geneJAM"
   obj
 }

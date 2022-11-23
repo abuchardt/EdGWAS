@@ -1,8 +1,8 @@
-#' Plot diagnostics for an edgwas object
+#' Plot diagnostics for an geneJAM object
 #'
-#' Two plots (selectable by which) are currently available: a plot of the mean standard error curve produced by edgwas i.e., the MSE and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for rho.min.
+#' Two plots (selectable by which) are currently available: a plot of the mean standard error curve produced by geneJAM i.e., the MSE and upper and lower standard deviation curves plotted against the values of rho used in the fits, and an adjacency matrix plot for rho.min.
 #'
-#' @param x Fitted "edgwas" object.
+#' @param x Fitted "geneJAM" object.
 #' @param which If a subset of the plots is required, specify a subset of the numbers \code{1:5}.
 #' @param main An overall title for the plot: see \code{\link{title}}
 #' @param xlab A title for the x axis: see \code{\link{title}}
@@ -16,7 +16,7 @@
 #'
 #' @details Plots are produced, and nothing is returned.
 #'
-#' @seealso{\code{\link{edgwas}}}
+#' @seealso{\code{\link{geneJAM}}}
 #'
 #' @examples
 #' N <- 500
@@ -27,21 +27,21 @@
 #' B[1, 1:2] <- 10
 #' y <- x %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 #' ###
-#' pc <- edgwas(x, y)
+#' pc <- geneJAM(x, y)
 #' plot(pc, 1)
 #' plot(pc, 2)
 #'
 #' @export
 #'
 
-plot.edgwas <- function (x, which = c(1L:2L),
+plot.geneJAM <- function (x, which = c(1L:2L),
                             main = "", xlab = NULL, ylab = NULL,
                             ask = prod(par("mfcol")) < length(which) && dev.interactive(),
                             pointsCol = "#D95F02", ylim = NULL, xlim = NULL, col = NULL,
                             ...) {
 
-  if (!inherits(x, "edgwas"))
-    stop("use only with \"edgwas\" objects")
+  if (!inherits(x, "geneJAM"))
+    stop("use only with \"geneJAM\" objects")
   if(!is.numeric(which) || any(which < 1) || any(which > 2))
     stop("'which' must be in 1:2")
   show <- rep(FALSE, 2)
@@ -88,7 +88,7 @@ plot.edgwas <- function (x, which = c(1L:2L),
   }
   if (show[2L]) {
 
-    matplot.edgwas(x, s = "rho.min")
+    matplot.geneJAM(x, s = "rho.min")
 
   }
 

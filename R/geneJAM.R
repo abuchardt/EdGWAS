@@ -11,7 +11,7 @@
 #' @param logrho Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.
 #' @param rho.min.ratio Smallest value for rho, as a fraction of rho.max, the (data derived) entry value (i.e. the smallest value for which all coefficients are zero) - default is 10e-04.
 #'
-#' @return An object of class "edgwas" is returned. \item{call}{The call that produced this object.} \item{alpha}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.edgwas}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.} \item{nobs}{Number of observations.} \item{alphaStderr}{Standard error of coefficients \code{alpha}.} \item{betaStderr}{Standard error of coefficients \code{beta}.} \item{betaSD}{Standard error of the mean of coefficients \code{beta} for clustered traits.} \item{betaSD0}{Standard error of the mean of all coefficients \code{beta}.} \item{rho.min}{Value of rho that gives minimum non-zero betaSD.}
+#' @return An object of class "geneJAM" is returned. \item{call}{The call that produced this object.} \item{alpha}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.geneJAM}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.} \item{nobs}{Number of observations.} \item{alphaStderr}{Standard error of coefficients \code{alpha}.} \item{betaStderr}{Standard error of coefficients \code{beta}.} \item{betaSD}{Standard error of the mean of coefficients \code{beta} for clustered traits.} \item{betaSD0}{Standard error of the mean of all coefficients \code{beta}.} \item{rho.min}{Value of rho that gives minimum non-zero betaSD.}
 #'
 #' @examples
 #' N <- 1000 #
@@ -25,7 +25,7 @@
 #' B[3, 3] <- 2
 #' y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 #' #y0 <- apply(y0, 2, scale)
-#' beta <- ps.edgwas(X0, y0)$beta
+#' beta <- ps.geneJAM(X0, y0)$beta
 #' # Sample 2
 #' X <- matrix(rbinom(n = N*p, size = 2, prob = 0.3), nrow=N, ncol=p)
 #' y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
@@ -36,12 +36,12 @@
 #' x <- X %*% beta
 #' #x <- MASS::mvrnorm(n = N, mu = rep(0, q), Sigma = diag(1, q))
 #' ###
-#' pc <- edgwas(x, y)
+#' pc <- geneJAM(x, y)
 #'
 #' @export
 #'
 
-edgwas <- function(x, y, rho = NULL,
+geneJAM <- function(x, y, rho = NULL,
                    nrho = ifelse(is.null(rho), 20, length(rho)),
                    logrho = FALSE,
                    rho.min.ratio = 10e-04
@@ -177,7 +177,7 @@ edgwas <- function(x, y, rho = NULL,
       clu <- clusterlist[[j]] <- igraph::components(g)
 
       # 2.
-      fglsfit <- .fgls.edgwas(res, nouts, clu, nobs, xMat, yVec, y)
+      fglsfit <- .fgls.geneJAM(res, nouts, clu, nobs, xMat, yVec, y)
       betaCov <- fglsfit$betaCov
       betaHat <- fglsfit$betaHat
 
@@ -213,14 +213,14 @@ edgwas <- function(x, y, rho = NULL,
       idx <- which(fit$betaSD > 0)
       fit$rho.min <- fit$rho[which.min(fit$betaSD[idx])]
 
-  class(fit) <- "edgwas"
+  class(fit) <- "geneJAM"
   fit
 }
 
 #' @export
 #'
 #'
-.fgls.edgwas <- function(res, nouts, clu, nobs, xMat, yVec, y) {
+.fgls.geneJAM <- function(res, nouts, clu, nobs, xMat, yVec, y) {
   newres <- res
   for (iter in 1:10) {
 

@@ -1,6 +1,6 @@
-Package: EdGWAS
+Package: geneJAM
 Type: Package
-Title: Cluster multiple traits via PRS
+Title: Joint regression Analysis of Multiple traits based on GENEtic relationships
 Version: 0.1.0
 Author: Ann-Sophie Buchardt <asbu@sund.ku.dk>
 Maintainer: Ann-Sophie Buchardt <asbu@sund.ku.dk>

@@ -1,6 +1,6 @@
-#' Adjacency matrix plot for a cv.edgwas object
+#' Adjacency matrix plot for a cv.geneJAM object
 #'
-#' @param x Fitted "edgwas" object.
+#' @param x Fitted "geneJAM" object.
 #' @param s Value(s) of the penalty parameters rho for which the corresponding adjacency matrix is plotted. Default is rho.min.
 #' @param A True adjacency matrix (optional).
 #' @param col Color(s) to fill or shade the non-zero entries with. The default is \code{col = "lightgrey"}.
@@ -18,7 +18,7 @@
 #' @export
 #'
 
-matplot.edgwas <- function (x, s = "rho.min", A = NULL,
+matplot.geneJAM <- function (x, s = "rho.min", A = NULL,
                             col = "darkgrey", col.border = "#D95F02", bty = "n",
                             xlab = NULL, ylab = NULL,
                             axes = TRUE, frame.plot = FALSE, reorder = FALSE, ...) {

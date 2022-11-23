@@ -13,12 +13,12 @@ knitr::opts_chunk$set(
 )
 ```
 
-# EdGWAS
+# geneJAM
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of EdGWAS is to help clustering outcome components (traits) that share some feature (genetic component) using polygenic risk scores (PRS).
+The goal of geneJAM is to help clustering outcome components (traits) that share some feature (genetic component) using polygenic risk scores (PRS).
 
 ## Installation
 
@@ -26,14 +26,14 @@ You can install the development version from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("devtools")
-devtools::install_github("abuchardt/EdGWAS")
+devtools::install_github("abuchardt/geneJAM")
 ```
 ## Example
 
 This is a basic example on simulated data:
 
 ```{r example}
-library(EdGWAS)
+library(geneJAM)
 N <- 1000 #
 q <- 10 #
 p <- 5000 #
@@ -48,7 +48,7 @@ Y0 <- X0 %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 
 Compute polygenic scores and coefficients
 ```{r ps}
-psobj <- ps.edgwas(X0, Y0)
+psobj <- ps.geneJAM(X0, Y0)
 ps <- psobj$PS
 beta <- psobj$beta
 ```
@@ -60,9 +60,9 @@ Y <- X %*% B + matrix(rnorm(N*q), nrow = N, ncol = q)
 PS <- X %*% beta
 ```
 
-Run EdGWAS
+Run geneJAM
 ```{r step1}
-fit <- edgwas(PS, Y)
+fit <- geneJAM(PS, Y)
 ```
 
 Plot mean standard error curve
@@ -71,7 +71,7 @@ plot(fit, 1)
 ```
 
 ```{r p1save, include=FALSE}
-png("/home/ann-sophie/wip/R/edgwas/README-plot1.png",
+png("/home/ann-sophie/wip/R/geneJAM/README-plot1.png",
     width = 300, height = 300)
 par(mar = c(4,4,1,1))
 plot(fit, 1)
@@ -87,7 +87,7 @@ plot(fit, 2)
 ```
 
 ```{r p2save, include=FALSE}
-png("/home/ann-sophie/wip/R/edgwas/README-plot2.png",
+png("/home/ann-sophie/wip/R/geneJAM/README-plot2.png",
     width = 300, height = 300)
 par(mar = c(4,4,1,1))
 plot(fit, 2)
