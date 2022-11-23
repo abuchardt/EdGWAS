@@ -11,7 +11,7 @@
 #' @param logrho Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.
 #' @param rho.min.ratio Smallest value for rho, as a fraction of rho.max, the (data derived) entry value (i.e. the smallest value for which all coefficients are zero) - default is 10e-04.
 #'
-#' @return An object of class "geneJAM" is returned. \item{call}{The call that produced this object.} \item{alpha}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.geneJAM}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.} \item{nobs}{Number of observations.} \item{alphaStderr}{Standard error of coefficients \code{alpha}.} \item{betaStderr}{Standard error of coefficients \code{beta}.} \item{betaSD}{Standard error of the mean of coefficients \code{beta} for clustered traits.} \item{betaSD0}{Standard error of the mean of all coefficients \code{beta}.} \item{rho.min}{Value of rho that gives minimum non-zero betaSD.}
+#' @return An object of class "geneJAM" is returned. \item{call}{The call that produced this object.} \item{xi}{A matrix of intercepts of dimension nouts x length(rho)} \item{beta}{A matrix of coefficients for the PSs of dimension nouts x length(rho)} \item{A}{A length(rho) list of estimated adjacency matrices A of 0s and 1s, where A_{ij} is equal to 1 iff edges i and j are adjacent and A_{ii} is 0.} \item{P}{A length(rho) list of estimated precision matrices (matrix inverse of correlation matrices).} \item{Sigma}{A length(rho) list of estimated correlation matrices.} \item{rho}{The actual sequence of rho values used.} \item{PS}{Polygenic scores used. If  \code{scores = FALSE} they are computed by \code{\link{ps.geneJAM}}} \item{logrho}{Logical flag for log transformation of the rho sequence. Default is \code{logrho = FALSE}.} \item{nobs}{Number of observations.} \item{xiStderr}{Standard error of coefficients \code{xi}.} \item{betaStderr}{Standard error of coefficients \code{beta}.} \item{betaSD}{Standard error of the mean of coefficients \code{beta} for clustered traits.} \item{betaSD0}{Standard error of the mean of all coefficients \code{beta}.} \item{rho.min}{Value of rho that gives minimum non-zero betaSD.}
 #'
 #' @examples
 #' N <- 1000 #
@@ -139,9 +139,9 @@ geneJAM <- function(x, y, rho = NULL,
     AA
   })
 
-  alpha <- matrix(NA, nouts, nrho)
+  xi <- matrix(NA, nouts, nrho)
   beta <- matrix(NA, nouts, nrho)
-  alphaStderr <- matrix(NA, nouts, nrho)
+  xiStderr <- matrix(NA, nouts, nrho)
   betaStderr <- matrix(NA, nouts, nrho)
 
   summarylist <- vector(mode = "list", length = nrho)
@@ -190,9 +190,9 @@ geneJAM <- function(x, y, rho = NULL,
 
       betaSD0[j] <- sqrt(mean(Matrix::diag(betaCov)[c(FALSE, TRUE)]))
 
-      alpha[, j] <- betaHat[c(TRUE, FALSE)]
+      xi[, j] <- betaHat[c(TRUE, FALSE)]
       beta[, j] <- betaHat[c(FALSE, TRUE)]
-      alphaStderr[, j] <- sqrt(Matrix::diag(betaCov)[c(TRUE, FALSE)])
+      xiStderr[, j] <- sqrt(Matrix::diag(betaCov)[c(TRUE, FALSE)])
       betaStderr[, j] <- sqrt(Matrix::diag(betaCov)[c(FALSE, TRUE)])
 
       if (all(lowerA == 0)) break
@@ -204,8 +204,8 @@ geneJAM <- function(x, y, rho = NULL,
               A = A, P = P, Sigma = Sigma,
               rho = rho, PS = x, logrho = logrho,
               nobs = nobs,
-              alpha = alpha, beta = beta,
-              alphaStderr = alphaStderr,
+              xi = xi, beta = beta,
+              xiStderr = xiStderr,
               betaStderr = betaStderr,
               betaSD = betaSD,
               betaSD0 = betaSD0)

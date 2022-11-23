@@ -71,9 +71,9 @@ predict.geneJAM <- function(object, newPS, rho = NULL,
 
 
     ncoef <- lapply(seq(nouts), FUN = function(l) {
-      out <- rbind(object$alpha[l, whichRho], object$beta[l, whichRho])
+      out <- rbind(object$xi[l, whichRho], object$beta[l, whichRho])
       colnames(out) <- paste0("rho", whichRho)
-      rownames(out) <- c("alpha", "beta")
+      rownames(out) <- c("xi", "beta")
       out
     })
     names(ncoef) <- paste0("y", seq(nouts))
